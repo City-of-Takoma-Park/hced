@@ -369,7 +369,7 @@ race_breakout_gen <- function(df,
 
 # Takoma Park Data Explorer {- .tabset}
 
-***About***: This is a webpage to explore selected Census data on Takoma Park from the 2015-2019 American Community Survey. Each heading tab opens to a "Summary" sub-tab; click on other sub-tabs to see data-visualizations and detailed explanations for each type of data. All graphics are interactive; you can click and double-click on legend items to hide or show them, and mousing over graphics will show data-values. Race and ethnicity data are consolidated in the "Race and Ethnicity" tab, and repeat in each subject-area heading tab (e.g., race/ethnicity housing data can be found in the "Housing" sub-tab of the "Race and Ethnicity" heading-tab, as well as in the "Housing" heading-tab).
+***About***: This is a webpage for exploring selected Census data on Takoma Park from the [2015-2019 American Community Survey](https://www.census.gov/programs-surveys/acs). Each heading tab opens to a "Summary" sub-tab; click on other sub-tabs to see data-visualizations and detailed explanations. All graphics are interactive; you can click and double-click on legend items to hide or show them, and mousing over graphics will show data-values. Race and ethnicity data are consolidated in the "Race and Ethnicity" tab, and repeat in each subject-area heading tab (e.g., race/ethnicity housing data can be found in the "Housing" sub-tab of the "Race and Ethnicity" heading-tab, as well as in the "Housing" heading-tab). The "Methodology" tab describes data sources and statistical significance. Code used to produce this webpage can be found on the [City's Github page](https://github.com/City-of-Takoma-Park/hced). Similar web-maps can be found in the [City's interactive demographic map](https://takomaparkmd.gov/news/learn-about-your-neighborhood-with-interactive-maps/) and in the [City's Social Vulnerability Index maps](https://takomaparkmd.gov/government/housing-and-community-development/planning-and-community-development/data-driven-approach-to-disaster-pandemic-response/).
 
 Please send any questions, comments, or feedback to Public Administration Specialist Dan Powers at danielp@takomaparkmd.gov.
 
@@ -5070,6 +5070,8 @@ plot_age_lang_tp
 
 #### Disability
 
+The American Community Survey covers [six types of disability](https://www.census.gov/topics/health/disability/guidance/data-collection-acs.html): hearing, vision, cognitive, ambulatory, self-care, and independent living.
+
 `r pull_disability_tp_tot` persons in Takoma Park have a disability. This represents `r pull_disability_tp_pct`% of Takoma Park's population, a lower share than Maryland's `r pull_disability_md_pct`% and Montgomery County's `r pull_disability_mont_pct`%.
 
 ```{r plot disability}
@@ -6418,11 +6420,15 @@ plot_race_age_health
 *Note: Due to the low number of NHPI and AIAN residents in Takoma Park, they are omitted from the above chart.*
 
 
-## Methodology and update-list {-}
+## Methodology {-}
 
 ### Methodology
 
-This document visualizes selected data from the 2015-2019 American Community Survey. Data is downloaded from the Census using R's tidycensus package. Block-group data in the racial demographics map as well as the shapefile come from NHGIS, cited below. Data will be updated periodically (potentially with additional visualizations), and with 2016-2020 data once the newest version of the American Community Survey is released. Updates are described below.
+This webpage visualizes selected data from the 2015-2019 American Community Survey. The webpage was produced using RMarkdown. Data is downloaded from the Census using R's tidycensus package. Block-group data in the racial demographics map as well as the shapefile come from NHGIS, cited below. Data will be updated periodically (potentially with additional visualizations), and with 2016-2020 data once the newest version of the American Community Survey is released. Updates are described below.
+
+The ACS survey asks residents whether they are one or multiple of the following races: white, Black or African American, Asian, Native Hawaiian and Other Pacific Islander, and American Indian and Alaska Native. The Census also leaves a sixth option, "Some Other Race," which people can fill in on their own (e.g., the Census [reports](https://www.census.gov/library/stories/2021/08/improved-race-ethnicity-measures-reveal-united-states-population-much-more-multiracial.html) that many Hispanic or Latino respondents listed "their race as 'Mexican,' 'Hispanic,' 'Latin American,' [or] 'Puerto Rican').
+
+Decennial Census results for 2020 will be analyzed separately. This is because the 5-year ACS updates each year rather than every 10 years (allowing more regular update to this webpage), contains some different data than the decennial Census, reflects different data than the decennial Census (survey results from a 5-year period rather than just 2020), and is collected differently (e.g., using statistical sampling to generate estimates rather than trying to survey every household).
 
 Text descriptions of the data generally focus on statistically significant differences at a minimum 90% significance level. For a place as small as Takoma Park it can be difficult to assess whether differences in the data are 'real,' or due to chance or the particular sample of people that the Census surveyed. This is especially true for analyses involving smaller subgroups or greater levels of disaggregation. For example, Takoma Park has a very small population of Native Hawaiians and Pacific Islanders, and populations of most groups become small when you break out data by race, age, and sex. For a difference to be statistically significant at a 90% level means that we would expect the difference to appear in the data due to randomness or sampling no more than 10% of the time. The hover text of many interactive visualizations in the explorer describe whether there are statistically significant differences between the selected group and other groups, the level of confidence in a given difference, and/or the margin of error of the estimate.
 
@@ -6435,12 +6441,11 @@ plot_gen_agecomp("65+") %>%
 
 ```
 
-
 Code used to produce this webpage and pre-process the data can be found on the [City's Github page](https://github.com/City-of-Takoma-Park/hced). Similar information can be found in the [City's interactive demographic map](https://takomaparkmd.gov/news/learn-about-your-neighborhood-with-interactive-maps/) and in the [City's Social Vulnerability Index maps](https://takomaparkmd.gov/government/housing-and-community-development/planning-and-community-development/data-driven-approach-to-disaster-pandemic-response/).
 
 ### Updates and citations
 
-**Update list:**
+**List of updates:**
 
 - *9/2/2021:* Uploaded webpage.
 

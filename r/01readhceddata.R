@@ -352,6 +352,9 @@ vars_lang_home_age <- variables %>%
   filter(grepl("B16007", name)) %>%
   pull(name)
 
+vars_disab_type <- variables %>%
+  filter(grepl("B1810", name))
+
 #load datasets using constructed variables
 dfs_list <- list("Unemployment by race" = vars_unemploy_race,
                  "Race_ethnicity" = c(vars_race_pop, vars_hisp_lat),
