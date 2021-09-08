@@ -369,7 +369,7 @@ race_breakout_gen <- function(df,
 
 # Takoma Park Data Explorer {- .tabset}
 
-***About***: This is a webpage for exploring selected Census data on Takoma Park from the [2015-2019 American Community Survey](https://www.census.gov/programs-surveys/acs). Each heading tab opens to a "Summary" sub-tab; click on other sub-tabs to see data-visualizations and detailed explanations. All graphics are interactive; you can click and double-click on legend items to hide or show them, and mousing over graphics will show data-values. Race and ethnicity data are consolidated in the "Race and Ethnicity" tab, and repeat in each subject-area heading tab (e.g., race/ethnicity housing data can be found in the "Housing" sub-tab of the "Race and Ethnicity" heading-tab, as well as in the "Housing" heading-tab). The "Methodology" tab describes data sources and statistical significance. Code used to produce this webpage can be found on the [City's Github page](https://github.com/City-of-Takoma-Park/hced). Similar web-maps can be found in the [City's interactive demographic map](https://takomaparkmd.gov/news/learn-about-your-neighborhood-with-interactive-maps/) and in the [City's Social Vulnerability Index maps](https://takomaparkmd.gov/government/housing-and-community-development/planning-and-community-development/data-driven-approach-to-disaster-pandemic-response/).
+***About***: This webpage allows Takoma Park residents and staff to learn more about their city through data. Data comes from the Census's [2015-2019 American Community Survey](https://www.census.gov/programs-surveys/acs). Each heading tab opens to a "Summary" sub-tab; click on other sub-tabs to see data-visualizations and detailed explanations. All graphics are interactive; you can click and double-click on legend items to hide or show them, and mousing over graphics will show data-values. Race and ethnicity data are consolidated in the "Race and Ethnicity" tab, and repeat in each subject-area heading tab (e.g., race/ethnicity housing data can be found in the "Housing" sub-tab of the "Race and Ethnicity" heading-tab, as well as in the "Housing" heading-tab). The "Methodology" tab describes data sources and statistical significance. Code used to produce this webpage can be found on the [City's Github page](https://github.com/City-of-Takoma-Park/hced). Similar web-maps can be found in the [City's interactive demographic map](https://takomaparkmd.gov/news/learn-about-your-neighborhood-with-interactive-maps/) and in the [City's Social Vulnerability Index maps](https://takomaparkmd.gov/government/housing-and-community-development/planning-and-community-development/data-driven-approach-to-disaster-pandemic-response/).
 
 Please send any questions, comments, or feedback to Public Administration Specialist Dan Powers at danielp@takomaparkmd.gov.
 
@@ -399,8 +399,6 @@ race_ethn_tp <-race_ethn_processed %>%
 tp_race_cats <- race_ethn_tp %>%
   filter(estimate <= 30) %>%
   pull(race)
-
-
 
 y_ax_race <- list(title = "Total")
 x_ax_race <- list(title = "Race/ethnicity")
@@ -1046,6 +1044,125 @@ pull_disab_tp_517 <- pull_disability_age(c("Takoma", "5-17"), "pct_disability")
 
 ```
 
+```{r disability type}
+
+disab_type <- data_binder("disab_type_pop") %>%
+  name_num_formatter()
+
+plot_tp_disabtype <- plot_ly(disab_type %>%
+          filter(grepl("Tako", name)), 
+        x = ~ disability,
+        y = ~ name_disab_type_est,
+        color = ~ disability,
+        type = "bar",
+        name = ~ disability,
+        legendgroup = ~ disability) %>%
+  layout(xaxis = list(title = "Disability type"),
+         yaxis = list(title = "Total"),
+         title = "Takoma Park disability by type")
+
+plot_disabtype_loc <- plot_ly(disab_type,
+        x = ~ disability,
+        y = ~ name_disab_type_pct_pop,
+        color = ~ location,
+        type = "bar",
+        colors = "Accent",
+        name = ~ location,
+        text = ~ glue("Percent of persons with disability: {name_disab_type_pct_disab}%"),
+        legendgroup = ~ location) %>%
+  layout(xaxis = list(title = "Disability type"),
+         yaxis = list(title = "Percent-population"),
+         title = "Disability by type")
+
+plots_disabtype_sub <- subplot(plot_tp_disabtype %>%
+                                 subplot_title("Total"),
+                               plot_disabtype_loc %>%
+                                 subplot_title("Percent-population"),
+                               nrows = 2,
+                               shareX = T)
+
+
+
+```
+
+
+```{r disability type age}
+
+
+disab_type_age <- data_binder("disab_type_age") %>%
+  name_num_formatter()
+
+disab_type_age_tp <- disab_type_age %>%
+  filter(grepl("Takoma", location)) %>%
+  age_recode(age)
+
+plot_disab_type_age <- plot_ly(disab_type_age_tp,
+  x = ~ age_new,
+  y = ~ age_disab_type_est,
+  color = ~ disability,
+  name = ~ disability,
+  legendgroup = ~ disability,
+  type = "bar") %>%
+  layout(xaxis = list(title = "Age"),
+         yaxis = list(title = "Total residents"),
+         title = "Takoma Park disability by age and type") %>%
+  subplot_title("Total residents")
+
+
+plot_disab_type_age_scatter <- plot_ly(disab_type_age_tp,
+  x = ~ age_new,
+  y = ~ age_disab_type_pct_age,
+  color = ~ disability,
+  name = ~ disability,
+  legendgroup = ~ disability,
+  showlegend = F,
+  text = ~ glue("Percent of age-group 
+  with a disability: {age_disab_type_pct_disab}%
+  Percent population: {age_disab_type_pct_pop}%"),
+  type = "scatter",
+  mode = "line+marker") %>%
+  layout(xaxis = list(title = "Age"),
+         yaxis = list(title = "Total residents"),
+         title = "Takoma Park disability by age and type") %>%
+  subplot_title("Percent age group")
+
+plot_disab_type_age_pct_disab <- plot_ly(disab_type_age_tp,
+  x = ~ age_new,
+  y = ~ age_disab_type_pct_disab,
+  color = ~ disability,
+  name = ~ disability,
+  legendgroup = ~ disability,
+  showlegend = F,
+  text = ~ glue("Percent of age-group 
+  with a disability: {age_disab_type_pct_disab}%
+  Percent population: {age_disab_type_pct_pop}%"),
+  type = "bar",
+  mode = "line+marker") %>%
+  layout(xaxis = list(title = "Age"),
+         yaxis = list(title = "Total residents"),
+         title = "Takoma Park disability by age and type") %>%
+  subplot_title("Percent age group")
+
+
+plots_disab_type_age_subs <- subplot(
+  plot_disab_type_age,
+  plot_disab_type_age_scatter,
+  shareX = T,
+  nrows = 2
+)
+
+pull_disab_age_type <- pull_creator(disab_type_age_tp, c("age_new", "disability"))
+
+pull_disab_ambulatory_75_pct <- pull_disab_age_type(c("75+", "Ambulatory"), "age_disab_type_pct_age")
+
+pull_disab_cognitive_1834_pct <- pull_disab_age_type(c("18-34", "Cognitive"), "age_disab_type_pct_age")
+
+pull_disab_cognitive_75_pct <- pull_disab_age_type(c("75+", "Cognitive"), "age_disab_type_pct_age")
+
+
+```
+
+Rates of specific disabilities generally increase with age, although at different rates. For instance, ambulatory disabilities increase from 
 
 
 ```{r ancestry}
@@ -4024,7 +4141,7 @@ sub_pov_race_age_tp_tot <- plot_ly(poverty_race_age_process_povonly %>%
 plot_race_age_poverty <- subplot(sub_pov_race_age_tp_pct,sub_pov_race_age_tp_tot, nrows = 2, shareX = T) %>%
   layout(title = "Poverty by race and age", xaxis = list(title = "Age-range"))
 
-text_race_summary <- glue("**Takoma Park is a majority-minority city with a population of {pull_pop_tp %>% commafy}.** By race, {pull_white_tp_pct}% of residents are white (non-Hispanic), {pull_black_tp_pct}% Black, {pull_hisp_tp_pct}% Hispanic (of any race), and {pull_asian_tp_pct}% Asian.")
+text_race_summary <- glue("**Takoma Park is a diverse city with a population of {pull_pop_tp %>% commafy}.** By race, {pull_white_tp_pct}% of residents are white (non-Hispanic), {pull_black_tp_pct}% Black, {pull_hisp_tp_pct}% Hispanic (of any race), and {pull_asian_tp_pct}% Asian.")
 
 text_ancestry_summary <- glue("**The largest reported non-European country of ancestry for residents is Ethiopia**, representing {pull_ethiopian_pct}% of the {pull_ssa %>% commafy} residents the Census reports as having sub-Saharan African ancestry. **The three largest origin-groups of people with a reported race of Asian are Indian, Chinese, and Vietnamese** (representing {pull_indian}, {pull_chinese}, and {pull_vietnamese} residents respectively).")
 
@@ -4034,7 +4151,7 @@ text_ancestry_summary <- glue("**The largest reported non-European country of an
 
 ### Summary
 
-**Takoma Park is a majority-minority city with a population of `r pull_pop_tp %>% commafy`.** The city's three largest racial/ethnic groups are non-Hispanic white (`r pull_white_tp_pct`%), Black (`r pull_black_tp_pct`%), and Hispanic (`r pull_hisp_tp_pct`%). Almost a third of residents were born in another county; of those born in another country, `r pull_tp_africa`% were born in Africa and `r pull_tp_latin`% in Latin America. A little more than a third of residents speak another language at home, the most common being Spanish at `r pull_tp_spanish`% of residents.
+**Takoma Park is a diverse city with a population of `r pull_pop_tp %>% commafy`.** The city's three largest racial/ethnic groups are non-Hispanic white (`r pull_white_tp_pct`%), Black (`r pull_black_tp_pct`%), and Hispanic (`r pull_hisp_tp_pct`%). Almost a third of residents were born in another county; of those born in another country, `r pull_tp_africa`% were born in Africa and `r pull_tp_latin`% in Latin America. A little more than a third of residents speak another language at home, the most common being Spanish at `r pull_tp_spanish`% of residents.
 
 **A little more than half of the city's residents are homeowners, but there are substantial economic and racial disparities tied to homeownership.** `r pull_tp_own_white`% of white residents own a home, compared to just `r pull_tp_own_black`% of Black residents. Renters earn much less than homeowners and are more-likely  than owners to experience housing cost-burden (meaning they spend at least 30% of their income on housing). Renters' median income is \$`r pull_tp_rent_income %>% commafy` compared to \$`r pull_tp_own_income %>% commafy` for owners, and `r pull_tp_rent_30more`% of renters experience housing cost burden compared to `r pull_tp_own_30more`% of owners.
 
