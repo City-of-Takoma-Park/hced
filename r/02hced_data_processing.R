@@ -602,12 +602,178 @@ process_age_lang <- function(df){
                        "age_tot_moe")
 }
 
+disab_pull <- function(df, new_col = disability, concept_col = concept){
+  df %>%
+    mutate({{new_col}} := {{concept_col}} %>%
+             tolower %>%
+             gsub("sex by age by ", replacement = "", x = .) %>%
+             gsub(" difficulty", "", .) %>%
+             stringr::str_to_title(.))
+}
+
+read_disab_type <- function(df, pop_tot_df){
+  df %>%
+    disab_pull(disability, concept) %>%
+    mutate(name_disab = paste0(name, "_", disability)) %>%
+    separate_label(c(NA, NA, "sex", "age", "disab_type")) %>%
+    total_col_add(total_cols = 
+                    c("pop_tot" = "sex", 
+                      "sex_tot" = "age", 
+                      "age_tot" = "disab_type"), 
+                  join_col = c("name_disab", "sex", "age")) %>%
+    mutate(disab_pop = ifelse(grepl("With a", 
+                             disab_type),
+                             "Has a disability",
+                             "No disability")) %>%
+    # drop population total and join population total data because some disability categories dont include all pop
+    select(-c(pop_tot, pop_tot_moe)) %>%
+    left_join(pop_tot_df)
+}
+
+process_pop_tot <- function(race_ethn_processed_df){
+  race_ethn_processed_df %>%
+    select(geoid, name, pop_total, pop_total_moe) %>%
+    distinct()
+}
+
+# disability overall over pop
+process_disability_pop <- function (df_disability){
+  df_disability %>%
+    est_moe_derive(c("name", "disability")) %>%
+    filter(grepl("With a disability", disability)) %>%
+    select(geoid, name, name_disability_est, name_disability_moe) %>%
+    distinct()
+} 
+
+# disability over age
+process_disability_age <- function (df_disability){
+  df_disability %>%
+    est_moe_derive(c("name", "age", "disability")) %>%
+    filter(grepl("With a disability", disability)) %>%
+    select(geoid, name, age, name_age_disability_est, name_age_disability_moe) %>%
+    distinct()
+} 
+
+# disability by type out of pop
+process_disab_type <- function(df, df_disab_pop){
+  df %>%
+    select(-c(sex, age, variable, label)) %>%
+    est_moe_derive(group_cols = c("name", "disab_type"), 
+                   est_col = "estimate", 
+                   moe_col = "moe") %>%
+    select(-c(estimate, moe, sex_tot, sex_tot_moe, age_tot, age_tot_moe)) %>%
+    distinct() %>%
+    left_join(df_disab_pop) %>%
+    filter(disab_pop == "Has a disability") %>%
+    derive_pct_est_moe("name_disab_type_pct_pop", 
+                       "pop_total",
+                       "pop_total_moe",
+                       "name_disab_type_est",
+                       "name_disab_type_moe") %>%
+    derive_pct_est_moe("name_disab_type_pct_disab", 
+                       "name_disability_est",
+                       "name_disability_moe",
+                       "name_disab_type_est",
+                       "name_disab_type_moe")
+}
+
+# df <- data_puller("acs52019/all_municip_acs5_", "Disability by age and type") %>%
+#   puller_funct(place_string = "", no_pull = T)
+
+# race_ethn_processed <- data_puller("acs52019/all_municip_acs5_", "Race_ethnicity") %>%
+#   race_ethn_processor(place = "place", no_pull = T)
+
+# disability <- data_puller(root_string = "acs52019/all_municip_acs5_", "Disability overall") %>%
+#   puller_funct(place_string = "Takoma", no_pull = T) %>%
+#   process_disability_overall
+
+# age_gender <- data_puller(root_string = "acs52019/all_municip_acs5_", "Age by gender") %>%
+#   puller_funct("place", no_pull = T) %>%
+#   process_age_gender
+# 
+# process_gender_overall <- function(age_df){
+#   age_gender %>%
+#     select(geoid, name, gender, tot_gender, tot_gender_moe) %>%
+#     distinct()
+# }
+# 
+# age_gender_processed <- process_gender_overall(age_gender)
+
+process_sex_disab_overall <- function(df){
+  df %>%
+    est_moe_derive(c("name", "sex", "disability")) %>%
+    select(geoid, name, sex, disability, tot_sex, tot_sex_moe, name_sex_disability_est, name_sex_disability_moe) %>%
+    distinct() %>%
+    filter(grepl("With a disability", disability))
+}
+
+process_disab_sex <- function(df, df_disab_sex){
+  # browser()
+  
+  df %>%
+    est_moe_derive(c("name", "sex", "disability"), 
+                   name_col = "sex_disability_type") %>%
+    select(geoid, name, sex, disability, pop_total, pop_total_moe, sex_disability_type_est, sex_disability_type_moe) %>%
+    filter(grepl("With a disability", disability)) %>%
+    distinct() %>%
+    left_join(df_disab_sex) %>%
+    derive_pct_est_moe("sex_disability_type_pct_disability", 
+                       "name_sex_disability_est",
+                       "name_sex_disability_est",
+                       "sex_disability_type_est",
+                       "sex_disability_type_moe") %>%
+    derive_pct_est_moe("sex_disability_type_pct_pop", 
+                       "pop_total",
+                       "pop_total_moe",
+                       "sex_disability_type_est",
+                       "sex_disability_type_moe") %>%
+    derive_pct_est_moe("sex_disability_type_pct_sex", 
+                       "tot_sex",
+                       "tot_sex_moe",
+                       "sex_disability_type_est",
+                       "sex_disability_type_moe")
+}
+
+# disability by type out of age
+process_disab_age <- function(df, disab_age_df) {
+  df %>%
+    select(-c(sex, variable, label)) %>%
+    left_join(disab_age_df) %>%
+    est_moe_derive(group_cols = c("name_disab", "age"), 
+                   est_col = "estimate", 
+                   moe_col = "moe", 
+                   name_col = "age_pop") %>%
+    # est_moe_derive(group_cols = c("name", "age", "disab_pop"),
+    #                est_col = "estimate",
+    #                moe_col = "moe",
+    #                name_col = "age_disab_pop") %>%
+    est_moe_derive(group_cols = c("name", "age", "disab_type"), 
+                   est_col = "estimate", 
+                   moe_col = "moe",
+                   "age_disab_type") %>%
+    select(-c(estimate, moe, sex_tot, sex_tot_moe, age_tot, age_tot_moe)) %>%
+    distinct() %>%
+    filter(disab_pop == "Has a disability") %>%
+    derive_pct_est_moe("age_disab_type_pct_age", 
+                       "age_pop_est",
+                       "age_pop_moe",
+                       "age_disab_type_est",
+                       "age_disab_type_moe") %>%
+    derive_pct_est_moe("age_disab_type_pct_pop", 
+                       "pop_total",
+                       "pop_total_moe",
+                       "age_disab_type_est",
+                       "age_disab_type_moe") %>%
+    derive_pct_est_moe("age_disab_type_pct_disab", 
+                       "name_age_disability_est",
+                       "name_age_disability_est",
+                       "age_disab_type_est",
+                       "age_disab_type_moe")
+}
+
 #### build datasets
 ## function to build and save all datasets of interest
-data_creator <- function(root_string, 
-                         place, 
-                         no_pull = T, 
-                         desc_year = "acs5_2019"){
+data_creator <- function(root_string, place, no_pull = T, desc_year = "acs5_2019"){
   # computer use
   comp_race <- data_puller(root_string, "Computer overall and by race") %>%
     computer_overall_process(place = place, no_pull = T)
@@ -1198,7 +1364,36 @@ data_creator <- function(root_string,
     process_age_lang()
   
   data_saver(age_lang, place, "lang_age", desc_year = desc_year)
+  
+  # disability by type of disability
+  disab_root <- data_puller(root_string = root_string, "Disability by age and type") %>%
+    puller_funct(place_string = place, no_pull = no_pull)
+  
+  # process population data and age/disability data because can have multiple disabilities within age groups
+  pop_tot <- process_pop_tot(race_ethn_processed)
+  
+  disab_overall <- process_disability_pop(disability)
+  
+  age_disab_overall <- process_disability_age(disability)
+  
+  disab_sex_overall <- process_sex_disab_overall(disability)
+  
+  disab_type_root <- disab_root %>%
+    read_disab_type(pop_tot_df = pop_tot)
+  
+  disab_type_pop <- process_disab_type(disab_type_root, df_disab_pop = disab_overall)
+  
+  data_saver(disab_type_pop, place, "disab_type_pop", desc_year = desc_year)
 
+  disab_type_age <- process_disab_age(disab_type_root, disab_age_df = age_disab_overall)
+  
+  data_saver(disab_type_age, place, "disab_type_age", desc_year = desc_year)
+  
+  disab_sex_type <- process_disab_sex(disab_type_root, disab_sex_overall)
+  
+  data_saver(disab_sex_type, place, "disab_sex_type", desc_year = desc_year)
+  
+  
 }
 
 # save all

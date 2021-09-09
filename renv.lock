@@ -74,15 +74,15 @@
     },
     "acsprocess": {
       "Package": "acsprocess",
-      "Version": "0.0.0.9000",
+      "Version": "0.0.1.0000",
       "Source": "GitHub",
       "RemoteType": "github",
       "RemoteHost": "api.github.com",
       "RemoteRepo": "acsprocess",
       "RemoteUsername": "dpowerstp",
       "RemoteRef": "HEAD",
-      "RemoteSha": "338173df9ade5b321ba135a582974edde3e32167",
-      "Hash": "2f3289a6814638c20e4d66ba9df67a59"
+      "RemoteSha": "68cece65c4bc4df57f91a9ba9721a770f9bc91c4",
+      "Hash": "c4fcac579b10419556abbbc55f01ea26"
     },
     "askpass": {
       "Package": "askpass",
@@ -118,13 +118,6 @@
       "Source": "Repository",
       "Repository": "CRAN",
       "Hash": "dc5f7a6598bb025d20d66bb758f12879"
-    },
-    "bookdown": {
-      "Package": "bookdown",
-      "Version": "0.22",
-      "Source": "Repository",
-      "Repository": "CRAN",
-      "Hash": "8fb0b67dfdf9d751fc93cb0036def3cc"
     },
     "boot": {
       "Package": "boot",
@@ -937,15 +930,15 @@
     },
     "tpfuncts": {
       "Package": "tpfuncts",
-      "Version": "0.0.0.9000",
+      "Version": "0.0.1.0000",
       "Source": "GitHub",
       "RemoteType": "github",
       "RemoteHost": "api.github.com",
       "RemoteRepo": "tpfuncts",
       "RemoteUsername": "dpowerstp",
       "RemoteRef": "HEAD",
-      "RemoteSha": "fc7a740c484f7944f2b6a9db737e77b8af34f105",
-      "Hash": "ee868a41d00da6c65ef6f73cb1827513"
+      "RemoteSha": "9ef6cd9f49b5cf70db1b40b5b4bcf44e255b1f30",
+      "Hash": "24fe7e9fce36d763d6102f422f8a2bfe"
     },
     "units": {
       "Package": "units",

@@ -353,7 +353,9 @@ vars_lang_home_age <- variables %>%
   pull(name)
 
 vars_disab_type <- variables %>%
-  filter(grepl("B1810", name))
+  filter(grepl("B1810[2-7]", name)) %>%
+  pull(name)
+
 
 #load datasets using constructed variables
 dfs_list <- list("Unemployment by race" = vars_unemploy_race,
@@ -394,7 +396,8 @@ dfs_list <- list("Unemployment by race" = vars_unemploy_race,
                  "Health insurance by race and age" = vars_health_insurance_race,
                  "Tenure by age" = vars_tenure_age,
                  "Detailed language" = vars_lang_home_detail,
-                 "Language by age" = vars_lang_home_age)
+                 "Language by age" = vars_lang_home_age,
+                 "Disability by age and type" = vars_disab_type)
 
 # dfs_list_vector <- unlist(dfs_list, use.names = FALSE, recursive = TRUE)
 
@@ -443,12 +446,12 @@ multi_year_process <- function(dfs_arg = dfs_list,
   return(output_dir)
 }
 
-multi_year_process(dfs_list, place_type = "place", year = 2019)
+multi_year_process(dfs_list[40:40], place_type = "place", year = 2019)
 
-multi_year_process(dfs_list, place_type = "state", year = 2019)
+multi_year_process(dfs_list[40:40], place_type = "state", year = 2019)
 
 
-multi_year_process(dfs_list, place_type = "county", year = 2019)
+multi_year_process(dfs_list[40:40], place_type = "county", year = 2019)
 
 # 
 # walk2(dfs_list[25:25], names(dfs_list)[25:25], ~ {

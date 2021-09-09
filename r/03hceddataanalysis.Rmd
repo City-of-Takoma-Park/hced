@@ -30,292 +30,10 @@ library(acsprocess)
 library(tpfuncts)
 library(leafletwrappers)
 
-race_factor <- function(df, race_col = race){
-  
-  race_vec <- c("White",
-                "Black",
-                "Hispanic",
-                "Asian",
-                "Other",
-                "Multiracial",
-                "NHPI",
-                "AIAN",
-                "Overall")
-  
-  pres_race <- df %>%
-    pull({{race_col}}) %>%
-    unique()
-  
-  race_vec <- race_vec[race_vec %in% pres_race]
-  
-  df %>%
-    mutate({{race_col}} := factor({{race_col}}, race_vec, race_vec))
-}
-
-# function to create summary datasets
-signif_compare <- function(df, 
-                           filter_col, 
-                           filter_val, 
-                           join_col, 
-                           est_col, 
-                           moe_col){
-  
-  # remove spaces/regular expression values
-  filter_name <- filter_val %>%
-    tolower %>%
-    gsub(" ", "_", .) %>%
-    gsub("(^)|($)", "", .)
-  
-  # generate column names
-  est_filter <- paste0(filter_name, "_est")
-  
-  moe_filter <- paste0(filter_name, "_moe")
-  
-  crit_filter <- paste0("crit_", filter_name)
-  
-  signif_filter <- paste0("signif_", filter_name)
-  
-  # create dataframe of values to compare original df values against
-  filter_df <- df %>%
-    # ungroup data in case grouped
-    ungroup %>%
-    filter(grepl(filter_val, {{ filter_col }}, ignore.case = T)) 
-  
-  if ((filter_df %>% 
-       pull({{ filter_col }}) %>% 
-       unique %>%
-       length) > 1){
-    stop("Error; multiple unique values returned in filtered column; check precision of filter_val")
-  }
-  
-  filter_df <- filter_df %>%
-    select({{join_col}}, {{ est_col }}, {{ moe_col }}) %>%
-    distinct %>%
-    rename(!!sym(est_filter) := {{ est_col }},
-           !!sym(moe_filter) := {{ moe_col }})
-  
-  if (nrow(filter_df) == 0){
-    stop("Error; empty filtered dataframe; check filter column")
-  }
-  
-  # browser()
-  # calculate statistical significance
-  df %>%
-    left_join(filter_df) %>%
-    mutate(!!sym(crit_filter) := signif_test({{ est_col }},
-                                             !!sym(est_filter),
-                                             {{ moe_col }},
-                                             !!sym(moe_filter))[[1]],
-           !!sym(signif_filter) := signif_test({{ est_col }},
-                                               !!sym(est_filter),
-                                               {{ moe_col }},
-                                               !!sym(moe_filter))[[2]])
-  
-}
-
-# 
-signif_overall <- function(processed_df,
-                           root_df,
-                           group_cols,
-                           est_col, 
-                           moe_col,
-                           bind_overall = NULL){
-  
-  # browser()
-  
-  overall_df <- root_df %>%
-    ungroup %>%
-    # calculate overall results
-    est_moe_derive(group_cols = group_cols[1:(length(group_cols)-1)], 
-                   name_col = "pop_total") %>%
-    est_moe_derive(group_cols = group_cols,
-                   name_col = "overall") %>%
-    select(group_cols, pop_total_est, pop_total_moe, overall_est, overall_moe) %>%
-    distinct %>%
-    derive_pct_est_moe("pct_overall",
-                       "pop_total_est",
-                       "pop_total_moe",
-                       "overall_est",
-                       "overall_moe")
-  
-  # prepare dataset to join
-  overall_df_join <- overall_df %>%
-    select(group_cols, pct_overall, pct_moe) %>%
-    rename(pct_moe_overall = pct_moe)
-  
-  # join and calculate significance
-  processed_df <- processed_df %>%
-    ungroup %>%
-    left_join(overall_df_join) %>%
-    mutate(crit_overall = signif_test(est1 = {{ est_col }}, 
-                                      est2 = pct_overall, 
-                                      moe1 = {{ moe_col }}, 
-                                      moe2 = pct_moe_overall)[[1]],
-           signif_overall = signif_test(est1 = {{ est_col }}, 
-                                        est2 = pct_overall, 
-                                        moe1 = {{ moe_col }}, 
-                                        moe2 = pct_moe_overall)[[2]])
-  
-  # add overall results as category for data
-  if (!is.null(bind_overall)){
-    
-    # browser()
-    overall_df_bind <- overall_df %>%
-      ungroup %>%
-      mutate(!!sym(bind_overall) := "Overall") %>%
-      select(group_cols, bind_overall, pct_overall, pct_moe) %>%
-      rename({{ est_col }} := pct_overall,
-             {{ moe_col }} := pct_moe)
-    
-    processed_df <- processed_df %>%
-      dplyr::bind_rows(overall_df_bind)
-  }
-  
-  return(processed_df)
-}
-
-# function to perform comparison with montgomery county and takoma park
-signif_mont_tp <- function(df,
-                           join_col,
-                           name_pct,
-                           moe_pct = pct_moe){
-  
-  df %>%
-    signif_compare(filter_col = location,
-                   filter_val = "mont",
-                   join_col = join_col, 
-                   est_col = {{ name_pct }}, 
-                   moe_col = {{ moe_pct }}) %>%
-    signif_compare(filter_col = location,
-                   filter_val = "maryland",
-                   join_col = join_col, 
-                   est_col = {{ name_pct }}, 
-                   moe_col = {{ moe_pct }}) %>%
-    num_formatter() 
-
-}
-
-
-process_df <- function(df,
-                       group_cols,
-                       overall_cols,
-                       name_col,
-                       # tot_derive = NULL,
-                       bind_overall = NULL,
-                       signif_cols = list("Overall" = "signif_overall", 
-                                              "MC" = "signif_mont", 
-                                              "MD" = "signif_maryland"),
-                       root_df = NULL) {
-  
-  # create column names
-  name_est <- paste0(name_col, "_est")
-  name_moe <- paste0(name_col, "_moe")
-  name_pct <- paste0("pct_", name_col)
-  
-  # calculate group totals
-  processed_df <- df %>%
-    name_num_formatter() %>%
-    est_moe_derive(group_cols = group_cols,
-                   name_col = name_col)
-  
-  # estimate total of subgroup
-  processed_df <- processed_df %>%
-    est_moe_derive(group_cols = group_cols[1:(length(group_cols) -1)],
-                   name_col = "tot")
-  
-  
-  # if (is.null(bind_overall)){
-  #   processed_df <- processed_df %>%
-  #     est_moe_derive(group_cols = group_cols[1:(length(group_cols) -1)],
-  #                    name_col = "tot") 
-  # }
-  # 
-  # else {
-  #   if (!is.character(c("cats", "dogs"))){
-  #     stop("error; supplied value to tot_derive is not a character vector")
-  #   }
-  #   
-  #   # if totals already exist - supply those as character vector because lower moe
-  #   processed_df <- processed_df %>%
-  #     rename(tot_est = tot_derive[1],
-  #            tot_moe = tot_derive[2])
-  #   
-  # }
-  # 
-  
-  if (is.null(root_df)){
-    root_df <- df
-  }
-  
-  # calculate percent moe, run significance tests
-  processed_df <- processed_df %>%
-    select(group_cols, tot_est, tot_moe, name_est, name_moe) %>%
-    distinct() %>%
-    derive_pct_est_moe(name_pct,
-                       "tot_est",
-                       "tot_moe",
-                       name_est,
-                       name_moe) %>%
-    signif_overall(root_df = root_df, 
-                   group_cols = overall_cols, 
-                   est_col = !!sym(name_pct), 
-                   moe_col = pct_moe,
-                   bind_overall = bind_overall) %>%
-    signif_mont_tp(join_col = group_cols[-1], 
-                   name_pct = !!sym(name_pct)) %>%
-    signif_checker(signif_cols = signif_cols) %>%
-    num_formatter() 
-  
-  
-  return(processed_df)
-  
-}
-
-
-# graph data
-num_formatter <- function(df, arrange_col = NULL){
-  
-  if (!is.null(arrange_col)){
-    return(df %>%
-             mutate(across(where(is.numeric), .fns = ~ round(.x, 2))) %>%
-             arrange(desc(!!sym(arrange_col))))
-  }
-  
-  else if (is.null(arrange_col)){
-    return(df %>%
-             mutate(across(where(is.numeric), .fns = ~ round(.x, 2))))
-  }
-  
-}
-
-# name formatter
-name_formatter <- function(df){
-  df %>%
-    mutate(location = case_when(grepl("Takoma", name) ~ "Takoma Park",
-                                grepl("Montgomery", name) ~ "Montgomery County",
-                                grepl("Prince George", name) ~ "PG County",
-                                TRUE ~ "Maryland")) %>%
-    mutate(location = factor(location, levels = .[["location"]], labels = .[["location"]]))
-}
-
-# wrapper to apply name and number formatter
-name_num_formatter <- function(df, arrange_col = NULL){
-  df %>%
-    num_formatter(arrange_col = arrange_col) %>%
-    name_formatter()
-}
-
-recode_tenure <- function(df, tenure_col){
-  df %>%
-    mutate({{ tenure_col }} := str_extract({{ tenure_col }}, "^.*occupied"))
-}
-
-# 
 # race_formatter <- function(df, race_col){
 #   df %>%
 #     mutate(race = acsprocess::race_recode({{ race_col }}))
 # }
-
 
 # function to generate graphs of a specific race by location
 race_breakout_gen <- function(df, 
@@ -364,8 +82,6 @@ race_breakout_gen <- function(df,
   # showgrid = FALSE))
 }
 
-
-
 ```
 
 # Takoma Park Data Explorer {- .tabset}
@@ -392,7 +108,6 @@ race_ethn_processed <- race_ethn %>%
   name_num_formatter("pct_race") %>%
   filter(race_ethnicity != "White alone") %>%
   race_recode(race_ethnicity)
-
 
 race_ethn_tp <-race_ethn_processed %>%
   filter(grepl("Takoma", location))
@@ -484,163 +199,6 @@ age <- age_sex %>%
                      "age_tot_moe") %>%
   name_num_formatter()
 
-# function to check if vector has an overall value and to sort so that's last
-overall_check <- function(vec){
-  
-  # check if overall present in vector
-  overall_check <- grepl("overall", vec, ignore.case = T)
-  
-  # reorder vector so overall last
-  if (any(overall_check)){
-    vec <- c(vec[!overall_check], vec[overall_check])
-  }
-  
-  vec
-  
-}
-
-# function to identify if data statistically significant
-signif_checker <- function(data, 
-                           signif_cols = list("Overall" = "signif_overall", 
-                                              "MC" = "signif_mont", 
-                                              "MD" = "signif_maryland")){
-  # create blank column
-  data <- data %>%
-    mutate(signif_check = "")
-  
-  # rotate through
-   walk2(signif_cols, names(signif_cols), ~ {
-     data <<- data %>%
-       mutate(signif_check = paste0(signif_check,
-                                    case_when(is.na(!!sym(.x)) ~ "",
-                                              TRUE ~ paste0(", ", .y))))
-   })
-   
-   data %>%
-     mutate(signif_check = ifelse(signif_check == "", 
-                                  "None", 
-                                  gsub("^, ", "", signif_check)))
-
-}
-
-age_recode <- function(df, age_col, regroup = "decennial") {
-  # browser()
-  
-  # replace unecessary characters in string
-  age_sub <- function(string){
-    string %>%
-      gsub("Under ", "< ", .) %>%
-      gsub(" to ", "-", .) %>%
-      gsub(" years", "", .) %>%
-      gsub(" and over", "+", .) %>%
-      gsub(" and ", "-", .) %>%
-      gsub(":", "", .)
-  }
-  
-  # create new column with unecessary strings replaced
-  df <- df %>%
-    mutate(age_new = age_sub({{ age_col }}))
-  
-  # pull vector
-  age_vec_order <- pull(df, age_new) %>%
-    unique()
-  
-  # browser()
-  
-  # pull less than value
-  less_age <- grep("<", age_vec_order, value = T)
-  
-  # pull single digits and sort
-  single_dig <- grep("^[0-9]-", age_vec_order, value = T) %>% 
-    sort
-  
-  # reorder so 1) less than 2) signle digits 3) age vector order, and then check if overall value present and put last if so
-  age_vec_order <- c(less_age, single_dig, age_vec_order[!age_vec_order %in% c(single_dig, less_age)]) %>%
-    overall_check
-  
-  # create factor of age vector
-  df <- df %>%
-    mutate(age_new = factor(age_new, age_vec_order, age_vec_order))
-  
-  if (regroup == "decennial"){
-    
-    age_grp_vec = c(
-      "0-9",
-      "10-19",
-      "20-29",
-      "30-39",
-      "40-49",
-      "50-59",
-      "60-69",
-      "70-79",
-      "80+")
-    
-    
-    process_age_group <- function(string){
-      string <- as.character(string)
-      
-      case_when(string %in% c(less_age, single_dig) ~ age_grp_vec[1],
-                grepl("^1", string) ~ age_grp_vec[2],
-                grepl("^2", string) ~ age_grp_vec[3],
-                grepl("^3", string) ~ age_grp_vec[4],
-                grepl("^4", string) ~ age_grp_vec[5],
-                grepl("^5", string) ~ age_grp_vec[6],
-                grepl("^6", string) ~ age_grp_vec[7],
-                grepl("^7", string) ~ age_grp_vec[8],
-                !grepl("Overall", string, ignore.case = T, ) ~ age_grp_vec[9],
-                grepl("Overall",string, ignore.case = T) ~ string)
-      
-    }
-    
-    # create factor of order
-    df <- df %>%
-      mutate(age_group = process_age_group(age_new),
-             age_group = factor(age_group, age_grp_vec, age_grp_vec))
-    
-  }
-  
-  
-  else if (regroup == "race_age"){
-    
-    age_grp_vec = c(
-      "0-9",
-      "10-17",
-      "18-24",
-      "25-34",
-      "35-44",
-      "45-54",
-      "55-64",
-      "65-74",
-      "75-84",
-      "85+")
-    
-    process_age_group <- function(string){
-      string <- as.character(string)
-      
-      case_when(string %in% c(less_age, single_dig) ~ age_grp_vec[1],
-                grepl("(10)|(15)", string) ~ age_grp_vec[2],
-                grepl("(18)|(20)", string) ~ age_grp_vec[3],
-                grepl("(25)|(30)", string) ~ age_grp_vec[4],
-                grepl("35", string) ~ age_grp_vec[5],
-                grepl("^4", string) ~ age_grp_vec[6],
-                grepl("^5", string) ~ age_grp_vec[7],
-                grepl("^6", string) ~ age_grp_vec[8],
-                grepl("^7", string) ~ age_grp_vec[9],
-                !grepl("Overall", string, ignore.case = T, ) ~ age_grp_vec[10],
-                grepl("Overall",string, ignore.case = T) ~ string)
-      
-    }
-    
-    # create factor of order
-    df <- df %>%
-      mutate(age_group = process_age_group(age_new),
-             age_group = factor(age_group, age_grp_vec, age_grp_vec))
-    
-  }
-  
-  
-  df
-}
 
 age <- age_recode(age, age)
 
@@ -783,31 +341,6 @@ race_foreign_born <- data_binder("race_foreign_born_byrace") %>%
   mutate(race = factor(race, .$race, .$race),
          birthplace = factor(birthplace, .$birthplace, .$birthplace))
 
-birth_recode <- function(df, birth_col){
-  
-  birth_vec <- c("In-state",
-                 "Out of state",
-                 "Native: outside US",
-                 "Foreign born")
-  
-  birth_change <- function(string){
-    case_when(grepl("state of residence", string) ~ birth_vec[1],
-              grepl("other state", string) ~ birth_vec[2],
-              grepl("Native", string) ~ birth_vec[3],
-              grepl("Foreign", string) ~ birth_vec[4])
-  }
-  
-  df <- df %>%
-    mutate(birth_new = birth_change({{ birth_col }}),
-           birth_new = factor(birth_new, birth_vec, birth_vec))
-  
-  if (any(is.na(df[["birth_new"]]))){
-    stop("error; some missing values in new birth column")
-  }
-  
-  df
-}
-
 race_foreign_born <- birth_recode(race_foreign_born, birthplace)
 
 pull_race_foreign_born <- pull_creator(race_foreign_born, c("name", "birthplace", "race"))
@@ -829,24 +362,9 @@ pull_multi_otherstate <- pull_race_foreign_born(c("Takoma", "Other state", "mult
 
 ```{r process asian disag}
 
-asian_country_recode <- function(df, ethnicity_col){
-  
-  change_ethnicity <- function(string){
-    case_when(grepl("Indian", string) ~ "Indian",
-              grepl("Chinese", string) ~ "Chinese",
-              grepl("Two or ", string) ~ "Two +",
-              TRUE ~ string)
-  }
-  
-  df %>%
-    mutate(new_ethnicity = change_ethnicity( {{ ethnicity_col }}))
-}
-
-
 asian_disag <- data_binder("asian_disag") %>%
   name_num_formatter() %>%
   asian_country_recode(ethnicity)
-
 
 asian_disag_tp <- filter(asian_disag, grepl("Takoma", name))
 
@@ -1170,22 +688,6 @@ Rates of specific disabilities increase with age, although at different rates. F
 # ancestry_overall$ancestry %>%
 #   unique
 
-ancestry_recode <- function(df, ancestry_col){
-  
-  ancestry_change <- function(string){
-    case_when(grepl("Arab:", string) ~ "Arab",
-              grepl("French \\(except", string) ~ "French",
-              grepl("Subsaharan ", string) ~ "sub-Saharan African",
-              grepl("West Indian ", string) ~ "West Indian",
-              grepl("Unclassified or not", string) ~ "Not reported",
-              TRUE ~ string)
-  }
-  
-  df %>%
-    mutate(ancestry_new = ancestry_change({{ ancestry_col }}))
-  
-}
-
 ancestry_overall <- data_binder("ancestry_overall") %>%  
   name_num_formatter() %>%
   ancestry_recode(ancestry)
@@ -1450,54 +952,6 @@ pull_tp_nocomp_tot <- pull_comp(c("Takoma", "No computer"), "estimate")
 health_insur_age <- data_binder("health_age_processed") %>%
   name_num_formatter() %>%
   age_recode(age, regroup = F)
-
-health_insur_recode <- function(df, num, type){
-  
-  health_vec <- c("Employer-based",
-                  "Direct-purchase",
-                  "Two or more",
-                  "VA/military",
-                  "Medicare",
-                  "Medicaid/means-tested",
-                  "Medicaid and Medicare",
-                  "No insurance")
-  
-  string_recode <- function(num_plans, type_coverage){
-    multi_plans <- case_when(grepl("one", num_plans) ~ F,
-                             grepl("two", num_plans) ~ T)
-    
-    multi_funct <- function(type_cov){
-      case_when(grepl("Medicaid", type_cov) ~ health_vec[7],
-                TRUE ~ health_vec[3])
-    }
-    
-    case_when(multi_plans ~ multi_funct(type_cov = type_coverage),
-              grepl("employer-based", type_coverage) ~ health_vec[1],
-              grepl("direct-purchase", type_coverage) ~ health_vec[2],
-              grepl("Medicare", type_coverage) ~ health_vec[5],
-              grepl("Medicaid", type_coverage) ~ health_vec[6],
-              grepl("(TRICARE)|(VA Health)", type_coverage) ~ health_vec[4],
-              grepl("No insurance", type_coverage) ~ health_vec[8])
-  }
-  
-  df <- df %>%
-    mutate(health_new := string_recode({{ num }}, {{ type }}),
-           health_new = factor(health_new, health_vec, health_vec))
-  
-  if (any(is.na(df[["health_new"]]))){
-    
-    miss <- df %>%
-      filter(is.na(health_new)) %>%
-      pull({{type}}) %>%
-      unique
-    # browser()
-    
-    stop(glue("Error; missing values in returned vector; types coverage producing missing values are {paste(miss, collapse = ',')}"))
-  }
-  
-  df
-  
-}
 
 health_insur_overall <- health_insur_age %>%
   health_insur_recode(num = num_plans, type_coverage) %>%
@@ -2237,7 +1691,7 @@ health_insur_race_age_root <- health_insur_race_age %>%
 health_insur_race_age_process <- health_insur_race_age %>%
   filter(race != "white alone")
 
-health_race <- process_df(health_insur_race_age_process, 
+health_race <- process_df_tp(health_insur_race_age_process, 
                           group_cols = c("location", "race", "health"),
                           name_col = "health", 
                           overall_cols = c("location", "health"), 
@@ -2711,50 +2165,8 @@ owner_burden <- data_binder("burden_owners_overall") %>%
   mutate(tenure = "Owner",
          cumul_pct = cumsum(pct_tenure))
 
-
-cost_burden_recode <- function(df, cost_col){
-  # browser()
-  
-  string_recode <- function(string){
-    string %>%
-      gsub(" to ", "-", .) %>%
-      gsub(" percent", "%", .) %>%
-      gsub("Less than ", "< ", .) %>%
-      ifelse(grepl(" or more", .), paste0("> ", .), .) %>%
-      gsub(" or more", "", .) %>%
-      gsub("\\.0", "", .)
-    
-  }
-  
-  # define order
-  
-  unique_costs <- pull(df, {{ cost_col }}) %>%
-    unique
-  
-  factor_levels <- c(case_when(any(grepl("Less than 20", unique_costs)) ~ c("< 20%"),
-                               any(grepl("Less than 10", unique_costs)) ~ c("< 10%",
-                                                                            "10-14.9%",
-                                                                            "15-19.9%")), 
-                     c("20-24.9%",
-                       "25-29.9%",
-                       "30-34.9%",
-                       "35-39.9%",
-                       "40-49.9%",
-                       "> 50%")) %>% rev
-  
-  df %>%
-    mutate({{ cost_col }} := string_recode({{ cost_col }})) %>%
-    mutate({{ cost_col }} := factor({{ cost_col }}, factor_levels, factor_levels))
-  
-  # burden_overall$percent_income %>% unique
-  
-}
-
 burden_overall <- rbind(renter_burden, owner_burden)  %>%
   cost_burden_recode(percent_income)
-
-
-
 
 burden_tp <- filter(burden_overall, grepl("Takoma", location))
 
@@ -3389,27 +2801,6 @@ text_race_income <- glue("**Substantial racial inequalities in income exist in T
 
 ```{r poverty detail}
 
-incpov_recode <- function(df, var){
-  
-  incpov_vec <- df %>%
-    pull({{ var }}) %>%
-    unique %>%
-    sort
-  
-  # identify under category
-  incpov_first <- grep("Under", incpov_vec, value = T, ignore.case = T)
-  
-  # exclude under category from vector
-  incpov_vec <- grep("Under", incpov_vec, value = T, ignore.case = T, invert = T)
-  
-  # add under category first in order
-  incpov_vec <- c(incpov_first, incpov_vec)
-  
-  df %>%
-    mutate(incpov_new = factor({{ var }}, incpov_vec, incpov_vec))
-  
-}
-
 poverty_detail <- data_binder("poverty_detail") %>%
   incpov_recode(incpov_ratio) %>%
   group_by(name) %>%
@@ -3468,7 +2859,7 @@ unemploy_gender_age_root <- unemploy_gender_age %>%
   rename(estimate = workers_est, moe = workers_moe) %>%
   name_num_formatter()
 
-unemploy_overall_processed <- process_df(unemploy_gender_age_root, 
+unemploy_overall_processed <- process_df_tp(unemploy_gender_age_root, 
                                          group_cols = c("location", "employment_status"),
                                          overall_cols = "location", 
                                          name_col = "workers",
@@ -3536,7 +2927,7 @@ race_unemploy <- race_employment_u65 %>%
   filter(grepl("unemployed", employment_status, ignore.case = TRUE) & (estimate > 0 | race == "Overall")) %>%
   num_formatter() %>%
   race_recode(race) %>%
-  name_num_formatter() %>%
+  # name_num_formatter() %>%
   signif_checker(list("Overall" = "signif_overall",
                       "MC" = "signif_mont",
                       "MD" = "signif_maryland",
@@ -3597,7 +2988,7 @@ unemploy_root <- unemploy_gender_age %>%
   age_recode(age_range)
 
 # process data
-unemploy_age_processed <- process_df(unemploy_root, 
+unemploy_age_processed <- process_df_tp(unemploy_root, 
                                      group_cols = c("location", "age_new", "employment_status"), 
                                      overall_cols = c("location", "employment_status"), 
                                      name_col = "labor", 
@@ -3836,23 +3227,12 @@ plot_race_poverty <- subplot(sub_poverty_race, sub_poverty_race_tot, nrows = 2) 
 
 ```{r poverty age}
 
-# function to join older age groups for greater statistical
-old_recode <- function(df, age_col){
-  age_old <- function(string){
-    case_when(grepl("(75)|(85)", string) ~ "75 years and over",
-              T ~ string)
-  }
-  
-  df %>%
-    mutate({{ age_col }} := age_old({{ age_col }}))
-}
-
 poverty_age_root <- poverty_race_age %>%
   old_recode(age) %>%
   age_recode(age, F) %>%
   filter(!grepl("hispanic", race, ignore.case = T))
 
-poverty_age_processed <- process_df(poverty_age_root, 
+poverty_age_processed <- process_df_tp(poverty_age_root, 
                                     group_cols = c("location", "age_new", "poverty"),
                                     overall_cols = c("location", "poverty"),
                                     name_col = "agepov", 
@@ -4383,76 +3763,6 @@ race_vector <- race_age_tp$race %>%
   unique() %>%
   tolower
 
-
-pull_creator_test <- function(df_result, filter_col, default_pull = NULL, ...){
-  
-  if (!all(filter_col %in% colnames(df_result))){
-    stop("Error; some filter columns not present in dataframe")
-  }
-  
-  # default column to pull
-  if (is.null(default_pull)){
-    default_pull <- paste0("pct_", tolower(filter_col))
-  }
-  
-  # function to filter dataframe to string in filter column
-  filter_funct <- function(df, filter_val, filter_col){
-    
-    print(filter_val)
-    
-    # browser()
-    
-    df %>%
-      dplyr::filter(grepl(filter_val, !!dplyr::sym(filter_col), ignore.case = T))
-  }
-  
-  # function to filter dataframe based on each filter column and pull the resulting column
-  a <- function(filter_val, pull_col = default_pull, ...){
-    
-    print(filter_val)
-    
-    if (length(filter_val) != length(filter_col)){
-      stop("Error; filtervalues provided not equal to number of filter columns")
-    }
-    
-    if (!pull_col %in% colnames(df_result)){
-      stop("Error; pull column missing from dataframe")
-    }
-    
-    df_cap <- df_result
-    
-    purrr::walk2(filter_val, filter_col, ~ {
-      # print(filter_col)
-      
-      print(filter_val)
-      
-      # browser()
-      df_cap <<- filter_funct(df_cap, .x, .y)
-    })
-    
-    if (nrow(df_cap) == 0){
-      stop("Error; filtered df is empty")
-    }
-    
-    pull_vals <- df_cap %>%
-      dplyr::pull(!!dplyr::sym(pull_col))
-    
-    if (length(pull_vals) == 0 | is.null(pull_vals)){
-      stop("Error; returned empty vector")
-    }
-    
-    if (length(pull_vals) > 1) {
-      warning("Length of returned vector greater than 1; likely omitted some columns you want to filter by")
-    }
-    
-    return(pull_vals)
-    
-  }
-  return(a)
-}
-
-pull_race_age_tp_test <- pull_creator_test(race_age_tp, c("race", "age_group"))
-
 pull_race_age_tp <- pull_creator(race_age_tp, c("race", "age_group"))
 
 walk(as.character(age_vector), function(age) {
@@ -4481,34 +3791,6 @@ walk(as.character(age_vector), function(age) {
   })
   
 })
-
-
-signif_test <- function(est1, est2, moe1, moe2, just_val = F){
-  
-  # browser()
-  
-  se1 <- moe1 / 1.645
-  se2 <- moe2 / 1.645
-  
-  se1_sqr <- se1 ^ 2
-  se2_sqr <- se2 ^ 2
-  
-  z_score <- abs((est1 - est2) / sqrt(se1_sqr + se2_sqr))
-  
-  crit_val <- dplyr::case_when(z_score > 2.576 ~ 0.99,
-                               z_score > 1.960 ~ 0.95,
-                               z_score > 1.645 ~ 0.9)
-  
-  if (just_val){
-    return(crit_val)
-  }
-  
-  vals <- list("z_score" = z_score,
-               "crit_val" = crit_val)
-  
-  return(vals)
-  
-}
 
 race_age_tp_plot <- race_age_tp %>%
   filter(!race %in% tp_race_cats) %>%
@@ -4722,9 +4004,6 @@ labels_funct <- function(df_as_data){
     )
   })
 }
-
-labels_funct(bg_shapes_racedata_tp %>% st_drop_geometry())
-
 
 map_funct_racedata <- function(basemap = bg_shapes_racedata_tp, 
                                group_cols = c("White (non-Hispanic) residents: total",
@@ -6571,7 +5850,7 @@ For instance, in the plot below of internet access for residents 65 and over, ho
 
 ```{r demo subplot}
 plot_gen_agecomp("65+") %>%
-  layout(title = "Internet access by for residents 65 and over",
+  layout(title = "Internet access for residents 65 and over",
          yaxis = list(title = "Percent"))
 
 ```
