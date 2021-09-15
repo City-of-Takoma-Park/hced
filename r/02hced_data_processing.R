@@ -670,11 +670,13 @@ process_disab_type <- function(df, df_disab_pop){
                        "pop_total_moe",
                        "name_disab_type_est",
                        "name_disab_type_moe") %>%
+    rename(pct_moe_pop = pct_moe) %>%
     derive_pct_est_moe("name_disab_type_pct_disab", 
                        "name_disability_est",
                        "name_disability_moe",
                        "name_disab_type_est",
-                       "name_disab_type_moe")
+                       "name_disab_type_moe") %>%
+    rename(pct_moe_disab = pct_moe)
 }
 
 # df <- data_puller("acs52019/all_municip_acs5_", "Disability by age and type") %>%
@@ -702,19 +704,19 @@ process_disab_type <- function(df, df_disab_pop){
 process_sex_disab_overall <- function(df){
   df %>%
     est_moe_derive(c("name", "sex", "disability")) %>%
-    select(geoid, name, sex, disability, tot_sex, tot_sex_moe, name_sex_disability_est, name_sex_disability_moe) %>%
-    distinct() %>%
-    filter(grepl("With a disability", disability))
+    filter(grepl("With a disability", disability)) %>%
+    select(geoid, name, sex, tot_sex, tot_sex_moe, name_sex_disability_est, name_sex_disability_moe) %>%
+    distinct()
 }
 
 process_disab_sex <- function(df, df_disab_sex){
   # browser()
   
   df %>%
-    est_moe_derive(c("name", "sex", "disability"), 
+    est_moe_derive(c("name", "sex", "disability", "disab_type"), 
                    name_col = "sex_disability_type") %>%
+    filter(grepl("With a", disab_type)) %>%
     select(geoid, name, sex, disability, pop_total, pop_total_moe, sex_disability_type_est, sex_disability_type_moe) %>%
-    filter(grepl("With a disability", disability)) %>%
     distinct() %>%
     left_join(df_disab_sex) %>%
     derive_pct_est_moe("sex_disability_type_pct_disability", 
@@ -722,16 +724,19 @@ process_disab_sex <- function(df, df_disab_sex){
                        "name_sex_disability_est",
                        "sex_disability_type_est",
                        "sex_disability_type_moe") %>%
+    rename(pct_moe_disab = pct_moe) %>%
     derive_pct_est_moe("sex_disability_type_pct_pop", 
                        "pop_total",
                        "pop_total_moe",
                        "sex_disability_type_est",
                        "sex_disability_type_moe") %>%
+    rename(pct_moe_pop = pct_moe) %>%
     derive_pct_est_moe("sex_disability_type_pct_sex", 
                        "tot_sex",
                        "tot_sex_moe",
                        "sex_disability_type_est",
-                       "sex_disability_type_moe")
+                       "sex_disability_type_moe") %>%
+    rename(pct_moe_sex = pct_moe)
 }
 
 # disability by type out of age
@@ -759,17 +764,155 @@ process_disab_age <- function(df, disab_age_df) {
                        "age_pop_moe",
                        "age_disab_type_est",
                        "age_disab_type_moe") %>%
+    rename(pct_moe_age = pct_moe) %>%
     derive_pct_est_moe("age_disab_type_pct_pop", 
                        "pop_total",
                        "pop_total_moe",
                        "age_disab_type_est",
                        "age_disab_type_moe") %>%
+    rename(pct_moe_pop = pct_moe) %>%
     derive_pct_est_moe("age_disab_type_pct_disab", 
                        "name_age_disability_est",
                        "name_age_disability_est",
                        "age_disab_type_est",
-                       "age_disab_type_moe")
+                       "age_disab_type_moe") %>%
+    rename(pct_moe_disab = pct_moe)
 }
+
+# df <- data_puller("acs52019/all_municip_acs5_", "Poverty by sex") %>%
+#   puller_funct("Takoma", no_pull = T)
+
+process_poverty_sex <- function(df){
+  return <- df %>%
+    separate_label(c(NA, NA, "pov_status", "sex", "age")) %>%
+    total_col_add(c("pop" = "pov_status",
+                    "pov_tot" = "sex",
+                    "pov_sex_tot" = "age"), 
+                  join_col = c("name", "pov_status", "sex")) %>%
+    est_moe_derive(c("name", "sex"), name_col = "pop_sex") %>%
+    select(-c(variable, estimate, moe, label, age)) %>%
+    distinct() %>%
+    # filter(grepl("below poverty", pov_status)) %>%
+    derive_pct_est_moe("pct_sex_pov", 
+                       "pop_sex_est",
+                       "pop_sex_moe",
+                       "pov_sex_tot",
+                       "pov_sex_tot_moe",
+                       ) %>%
+    rename(pct_moe_sex = pct_moe) %>%
+    derive_pct_est_moe("pct_sex_pop", 
+                       "pop",
+                       "pop_moe",
+                       "pov_sex_tot",
+                       "pov_sex_tot_moe",
+    ) %>%
+    rename(pct_moe_pop = pct_moe) %>%
+    derive_pct_est_moe("pct_pov_all", 
+                       "pov_tot",
+                       "pov_tot_moe",
+                       "pov_sex_tot",
+                       "pov_sex_tot_moe",
+    ) %>%
+    rename(pct_moe_pov_all = pct_moe)
+}
+
+# df <- data_puller("acs52019/all_municip_acs5_", "Poverty by sex and race") %>%
+#   puller_funct("Takoma", no_pull = T)
+
+process_poverty_race_sex <- function(df){
+  return <- df %>%
+    race_pull() %>%
+    mutate(name_race = paste0(name, race)) %>%
+    separate_label(c(NA, NA, "pov_status", "sex", "age")) %>%
+    total_col_add(c("race_pop" = "pov_status",
+                    "pov_race_tot" = "sex",
+                    "pov_race_sex_tot" = "age"), 
+                  join_col = c("name_race", "pov_status", "sex")) %>%
+    est_moe_derive(c("name_race", "sex"), name_col = "race_sex")
+  
+  overall <- return %>%
+    # filter out overlapping ethnicity
+    filter(!grepl("hispanic", race, ignore.case = T)) %>%
+    est_moe_derive(c("name", "sex"), name_col = "sex") %>%
+    est_moe_derive(c("name"), name_col = "pop") %>%
+    est_moe_derive(c("name", "pov_status"), name_col = "pov") %>%
+    est_moe_derive(c("name", "sex", "pov_status"), name_col = "sex_pov") %>% 
+    select(geoid, name, sex, pov_status, pop_est, pop_moe, sex_est, sex_moe, pov_est, pov_moe, sex_pov_est, sex_pov_moe) %>%
+    distinct()
+  
+  return_final <- return %>%
+    left_join(overall) %>%
+    select(-c(variable, estimate, moe, label, age)) %>%
+    distinct() %>%
+    # filter(grepl("below poverty", pov_status)) %>%
+    derive_pct_est_moe("pct_race_sex_pov", 
+                       "race_sex_est",
+                       "race_sex_moe",
+                       "pov_race_sex_tot",
+                       "pov_race_sex_tot_moe",
+    ) %>%
+    rename(pct_moe_race_sex_pov = pct_moe) %>%
+    derive_pct_est_moe("pct_race_pov", 
+                       "race_pop",
+                       "race_pop_moe",
+                       "pov_race_sex_tot",
+                       "pov_race_sex_tot_moe",
+    ) %>%
+    rename(pct_moe_race_pov = pct_moe) %>%
+    derive_pct_est_moe("pct_pov", 
+                       "pov_est",
+                       "pov_moe",
+                       "pov_race_sex_tot",
+                       "pov_race_sex_tot_moe",
+    ) %>%
+    rename(pct_moe_pov = pct_moe) %>%
+    derive_pct_est_moe("pct_sex_pov", 
+                       "sex_pov_est",
+                       "sex_pov_moe",
+                       "pov_race_sex_tot",
+                       "pov_race_sex_tot_moe",
+    ) %>%
+    rename(pct_moe_sex_pov = pct_moe)
+}
+
+
+process_poverty_sex_age <- function(df){
+  return <- df %>%
+    separate_label(c(NA, NA, "pov_status", "sex", "age")) %>%
+    total_col_add(c("pop" = "pov_status",
+                    "pov_tot" = "sex",
+                    "pov_sex_tot" = "age"), 
+                  join_col = c("name", "pov_status", "sex")) %>%
+    est_moe_derive(c("name", "sex"), name_col = "sex_pop") %>%
+    est_moe_derive(c("name", "sex", "age"), name_col = "sex_age_pop") %>%
+    est_moe_derive(c("name", "pov_tot"), name_col = "pov_tot") %>%
+    select(-c(variable, label)) %>%
+    distinct() %>%
+    # filter(grepl("below poverty", pov_status)) %>%
+    derive_pct_est_moe("pct_sex_pov", 
+                       "pov_sex_tot",
+                       "pov_sex_tot_moe"
+    ) %>%
+    rename(pct_moe_sex_pov = pct_moe) %>%
+    derive_pct_est_moe("pct_pop", 
+                       "pop",
+                       "pop_moe",
+    ) %>% 
+    rename(pct_moe_pop = pct_moe) %>%
+    derive_pct_est_moe("pct_sex_pop", 
+                       "sex_pop_est",
+                       "sex_pop_moe") %>%
+    rename(pct_moe_sex_pop = pct_moe) %>%
+    derive_pct_est_moe("pct_pop_pov", 
+                       "pov_tot_est",
+                       "pov_tot_moe") %>%
+    rename(pct_moe_pop_pov= pct_moe) %>%
+    derive_pct_est_moe("pct_sex_age",
+                       "sex_age_pop_est",
+                       "sex_age_pop_moe")
+}
+
+
 
 #### build datasets
 ## function to build and save all datasets of interest
@@ -1392,6 +1535,24 @@ data_creator <- function(root_string, place, no_pull = T, desc_year = "acs5_2019
   disab_sex_type <- process_disab_sex(disab_type_root, disab_sex_overall)
   
   data_saver(disab_sex_type, place, "disab_sex_type", desc_year = desc_year)
+  
+  poverty_sex <- data_puller(root_string = root_string, "Poverty by sex") %>%
+    puller_funct(place_string = place, no_pull = no_pull) %>%
+    process_poverty_sex()
+  
+  data_saver(poverty_sex, place, "poverty_sex", desc_year = desc_year)
+  
+  poverty_sex_race <- data_puller(root_string = root_string, "Poverty by sex and race") %>%
+    puller_funct(place_string = place, no_pull = no_pull) %>%
+    process_poverty_race_sex()
+  
+  data_saver(poverty_sex_race, place, "poverty_sex_race", desc_year = desc_year)
+  
+  poverty_sex_age <- data_puller(root_string = root_string, "Poverty by sex") %>%
+    puller_funct(place_string = place, no_pull = no_pull) %>%
+    process_poverty_sex_age()
+  
+  data_saver(poverty_sex_age, place, "poverty_age_sex", desc_year = desc_year)
   
   
 }
