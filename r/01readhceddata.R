@@ -369,6 +369,51 @@ vars_disab_type <- variables %>%
   filter(grepl("B1810[2-7]", name)) %>%
   pull(name)
 
+vars_family <- variables %>%
+  filter(grepl("^HOUSEHOLDS BY TYPE", concept)) %>%
+  pull(name)
+
+concepts_child <- variables %>%
+  filter(grepl("child", label)) %>% 
+  pull(concept) %>%
+  unique()
+
+vars_family_poverty_overall <- variables %>%
+  filter(grepl("POVERTY STATUS IN THE PAST 12 MONTHS OF FAMILIES BY FAMILY TYPE BY PRESENCE OF RELATED CHILDREN UNDER 18 YEARS BY AGE OF RELATED CHILDREN$", concept)) %>%
+  pull(name)
+
+vars_family_poverty_race <- variables %>%
+  filter(grepl("POVERTY STATUS IN THE PAST 12 MONTHS OF FAMILIES BY FAMILY TYPE BY PRESENCE OF RELATED CHILDREN UNDER 18 YEARS BY AGE OF RELATED CHILDREN \\(", concept)) %>%
+  pull(name)
+
+vars_family_poverty_numchildren <- variables %>%
+  filter(grepl("POVERTY STATUS IN THE PAST 12 MONTHS OF FAMILIES BY HOUSEHOLD TYPE BY NUMBER OF RELATED CHILDREN UNDER 18 YEARS", concept))%>%
+  pull(name)
+
+vars_family_incomepoverty <- variables %>%
+  filter(grepl("RATIO OF INCOME TO POVERTY LEVEL IN THE PAST 12 MONTHS OF FAMILIES BY FAMILY TYPE BY PRESENCE OF RELATED CHILDREN UNDER 18 YEARS BY AGE OF RELATED CHILDREN", concept)) %>%
+  pull(name)
+
+vars_family_income <- variables %>%
+  filter(grepl("MEDIAN FAMILY INCOME IN THE PAST 12 MONTHS \\(IN 2019 INFLATION-ADJUSTED DOLLARS\\) BY PRESENCE OF OWN CHILDREN UNDER 18 YEARS", concept)) %>%
+  pull(name)
+
+vars_family_income_familytype <- variables %>%
+  filter(grepl("MEDIAN FAMILY INCOME IN THE PAST 12 MONTHS \\(IN 2019 INFLATION-ADJUSTED DOLLARS\\) BY FAMILY TYPE BY PRESENCE OF OWN CHILDREN UNDER 18 YEARS", concept)) %>%
+  pull(name)
+
+vars_family_publicassist <- variables %>%
+  filter(grepl("RECEIPT OF FOOD STAMPS/SNAP IN THE PAST 12 MONTHS BY PRESENCE OF CHILDREN UNDER 18 YEARS BY HOUSEHOLD TYPE FOR HOUSEHOLDS", concept)) %>%
+  pull(name)
+
+vars_family_employstatus <- variables %>%
+  filter(grepl("PRESENCE OF OWN CHILDREN UNDER 18 YEARS BY FAMILY TYPE BY EMPLOYMENT STATUS", concept)) %>%
+  pull(name)
+
+vars_family_tenure <- variables %>%
+  filter(grepl("TENURE BY FAMILIES AND PRESENCE OF OWN CHILDREN", concept)) %>%
+  pull(name)
+
 
 #load datasets using constructed variables
 dfs_list <- list("Unemployment by race" = vars_unemploy_race,
@@ -412,7 +457,14 @@ dfs_list <- list("Unemployment by race" = vars_unemploy_race,
                  "Language by age" = vars_lang_home_age,
                  "Disability by age and type" = vars_disab_type,
                  "Poverty by sex" = vars_poverty_sex,
-                 "Poverty by sex and race" = vars_poverty_sex_race)
+                 "Poverty by sex and race" = vars_poverty_sex_race,
+                 "Family overall" = vars_family,
+                 "Family by poverty" = vars_family_poverty_overall,
+                 "Family by poverty and race" = vars_family_poverty_race,
+                 "Families by tenure" = vars_family_tenure,
+                 "Families by poverty and race" = vars_family_poverty_race, 
+                 "Families by public assistance"= vars_family_publicassist,
+                 "Family type and income" = vars_family_income_familytype)
 
 # dfs_list_vector <- unlist(dfs_list, use.names = FALSE, recursive = TRUE)
 
@@ -461,12 +513,12 @@ multi_year_process <- function(dfs_arg = dfs_list,
   return(output_dir)
 }
 
-multi_year_process(dfs_list[41:42], place_type = "place", year = 2019)
+multi_year_process(dfs_list[43:49], place_type = "place", year = 2019)
 
-multi_year_process(dfs_list[41:42], place_type = "state", year = 2019)
+multi_year_process(dfs_list[43:49], place_type = "state", year = 2019)
 
 
-multi_year_process(dfs_list[41:42], place_type = "county", year = 2019)
+multi_year_process(dfs_list[43:49], place_type = "county", year = 2019)
 
 # 
 # walk2(dfs_list[25:25], names(dfs_list)[25:25], ~ {
