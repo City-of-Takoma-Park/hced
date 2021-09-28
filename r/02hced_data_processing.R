@@ -3,7 +3,7 @@ library(dplyr)
 library(tidyverse)
 # library(conflicted)
 
-library(danfuncts)
+library(tpfuncts)
 library(acsprocess)
 
 # conflict_prefer("filter", "dplyr")
@@ -912,7 +912,39 @@ process_poverty_sex_age <- function(df){
                        "sex_age_pop_moe")
 }
 
+df <- data_puller("acs52019/all_municip_acs5_", "Family overall") %>%
+  puller_funct("Takoma", no_pull = T)
 
+
+process_family <- function(df){
+  process <- df %>%
+    separate_label(c(NA, NA, "hous_type", "hous_people")) %>%
+    total_col_add(c("housholds" = "hous_type",
+                    "tot_type" = "hous_people"), join_col = c("name", "hous_type"))
+}
+
+df <- data_puller("acs52019/all_municip_acs5_", "Family by poverty") %>%
+  puller_funct("Takoma", no_pull = T)
+
+process_family_poverty <- function(df){
+  process <- df %>%
+    separate_label(c(NA, NA, "pov_status", "fam_type", "fam_occupants", "occupants_age")) %>%
+    total_col_add(c("households" = "pov_status", "pov_status_tot" = "fam_type", "pov_type_tot" = "fam_occupants", "pov_type_occ_tot" = "occupants_age"), join_col = c("name", "pov_status", "fam_type", "fam_occupants"))
+}
+
+df <- data_puller("acs52019/all_municip_acs5_", "Family by poverty and race") %>%
+  puller_funct("Takoma", no_pull = T)
+
+process_family_poverty_race <- function(df){
+  process <- df %>%
+    race_pull() %>%
+    mutate(name_race = paste0(name, race)) %>%
+    separate_label(c(NA, NA, "pov_status", "fam_type", "fam_occupants", "occupants_age")) %>%
+    total_col_add(c("households" = "pov_status", "pov_status_tot" = "fam_type", "pov_type_tot" = "fam_occupants", "pov_type_occ_tot" = "occupants_age"), join_col = c("name_race", "pov_status", "fam_type", "fam_occupants"))
+}
+
+
+process_family_poverty_race <- 
 
 #### build datasets
 ## function to build and save all datasets of interest
