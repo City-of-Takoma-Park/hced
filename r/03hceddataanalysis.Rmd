@@ -3832,7 +3832,7 @@ text_ancestry_summary <- glue("**The largest reported non-European country of an
 
 ### Summary
 
-**Takoma Park is a diverse city with a population of `r pull_pop_tp %>% commafy`.** The city's three largest racial/ethnic groups are non-Hispanic white (`r pull_white_tp_pct`%), Black (`r pull_black_tp_pct`%), and Hispanic (`r pull_hisp_tp_pct`%). Almost a third of residents were born in another county; of those born in another country, `r pull_tp_africa`% were born in Africa and `r pull_tp_latin`% in Latin America. A little more than a third of residents speak another language at home, the most common being Spanish at `r pull_tp_spanish`% of residents.
+**Takoma Park is a diverse city with a population of `r pull_pop_tp %>% commafy`.** The city's three largest racial/ethnic groups are non-Hispanic white (`r pull_white_tp_pct`%), Black (`r pull_black_tp_pct`%), and Hispanic (`r pull_hisp_tp_pct`%). Almost a third of residents were born in another country; of those born in another country, `r pull_tp_africa`% were born in Africa and `r pull_tp_latin`% in Latin America. A little more than a third of residents speak another language at home, the most common being Spanish at `r pull_tp_spanish`% of residents.
 
 **A little more than half of the city's residents are homeowners, but there are substantial economic and racial disparities tied to homeownership.** `r pull_tp_own_white`% of white residents own a home, compared to just `r pull_tp_own_black`% of Black residents. Renters earn much less than homeowners and are more-likely  than owners to experience housing cost-burden (meaning they spend at least 30% of their income on housing). Renters' median income is \$`r pull_tp_rent_income %>% commafy` compared to \$`r pull_tp_own_income %>% commafy` for owners, and `r pull_tp_rent_30more`% of renters experience housing cost burden compared to `r pull_tp_own_30more`% of owners.
 
@@ -6247,8 +6247,8 @@ For instance, in the plot below of internet access for residents 65 and over, ho
 - **The margin of error** means that we are 90% confident that the actual level of broadband internet access of people 65 and over--not just the 'observed' estimate, which is what we see in the survey data--is between `r 75.97 - 7.19`% and `r 75.97 + 7.19`%. The margin of error suggests that Takoma Park's rate could be either higher or lower than Maryland's access rate due to randomness or sampling.
 
 ```{r demo subplot}
-plot_gen_agecomp("65+") %>%
-  layout(title = "Internet access for residents 65 and over",
+plot_gen_agecomp("65+", showleg = T) %>%
+  layout(title = "Internet access or residents 65 and over",
          yaxis = list(title = "Percent"))
 
 ```
