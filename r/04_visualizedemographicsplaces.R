@@ -13,7 +13,7 @@ library(leaflet)
 
 library(leafletwrappers)
 library(glue)
-library(danfuncts)
+library(tpfuncts)
 
 content_dir <- "./data/"
 
@@ -22,7 +22,6 @@ data_path <- function(...){
 }
 
 bg_data <- read.csv("./data/nhgis/hced_request_vars/nhgis0009_ds244_20195_2019_blck_grp.csv")
-
 
 # rename columns to descriptive names and remove extraneous 
 bg_data_rename <- bg_data %>%
