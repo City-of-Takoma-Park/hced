@@ -4693,8 +4693,6 @@ text_ancestry_summary <- glue("**The largest reported non-European country of an
 
 3) [Sex race]
 
-4) [Map race]
-
 #### Overall race
 
 `r text_raceoverall`
@@ -5104,155 +5102,6 @@ plot_race_sex
 
 *Note: Due to the low number of NHPI and AIAN residents in Takoma Park, they are omitted from the above chart.*
 
-
-#### Map race
-
-```{r map race text}
-
-text_map_race <- glue("The map below shows the distribution of different races across the city. White residents are distributed throughout the city, but represent a greater share of residents in the South, West, and center. Black residents are concentrated in the North and East of the city, and Hispanic residents in the North and Northeast of the city. Asian residents are concentrated in the East of the city, and residents with a race of 'other' in the Northeast.")
-
-```
-
-`r text_map_race`
-
-```{r map race, include=FALSE}
-
-bg_shapes_racedata_tp <- st_read("./data/output_data/shapefiles/bg_shapes_racedata_tp.geojson")
-
-# define common labels
-labels_funct <- function(df_as_data){
-  map(seq(nrow(df_as_data)), function(i){
-    return(
-      glue::glue("{df_as_data[i, 'name_e']}<p></p>
-        Total white (non-Hispanic) residents: {df_as_data[i, 'hispr_nothisp_white']}<p></p>
-        Total Black residents: {df_as_data[i, 'race_black']}<p></p>
-        Total Hispanic residents: {df_as_data[i, 'hispr_hisplat']}<p></p>
-        Total Asian residents: {df_as_data[i, 'race_asian']}<p></p>
-        Total 'other' residents: {df_as_data[i, 'race_other']}<p></p>
-        Percent white (non-Hispanic) residents: {df_as_data[i, 'hispr_nothisp_white_pct']}<p></p>
-        Percent Black residents: {df_as_data[i, 'race_black_pct']}<p></p>
-        Percent Hispanic residents: {df_as_data[i, 'hispr_hisplat_pct']}<p></p>
-        Percent Asian residents: {df_as_data[i, 'race_asian_pct']}<p></p>
-        Percent 'other' residents: {df_as_data[i, 'race_other_pct']}")
-    )
-  })
-}
-
-map_funct_racedata <- function(basemap = bg_shapes_racedata_tp, 
-                               group_cols = c("White (non-Hispanic) residents: total",
-                                              "Black residents: total",
-                                              "Hispanic residents: total",
-                                              "Asian residents: total",
-                                              "'Other' residents: total",
-                                              "White (non-Hispanic) residents: percent",
-                                              "Black residents: percent",
-                                              "Hispanic residents: percent",
-                                              "Asian residents: percent",
-                                              "'Other' residents: percent"),
-                               collapsed_val = FALSE){
-  
-  as_data_file <- st_drop_geometry(basemap)
-  # browser()
-  label_result <- labels_funct(as_data_file)
-  
-  group_cols <- group_cols
-  
-  map <- leaflet(basemap) %>%
-    addTiles(options = tileOptions(opacity = 0.5)) %>%
-    addpoly_legend(as_data_file, 
-                   pal_numeric("hispr_nothisp_white", 
-                               df = as_data_file, 
-                               "Reds"), 
-                   "hispr_nothisp_white",
-                   group_select = "White (non-Hispanic) residents: total", 
-                   "Total", 
-                   labels_select = label_result) %>%
-    addpoly_legend(as_data_file, 
-                   pal_numeric("race_black", 
-                               df = as_data_file, 
-                               "Blues"), 
-                   "race_black", 
-                   group_select = "Black residents: total", 
-                   "Total", 
-                   labels_select = label_result) %>%
-    addpoly_legend(as_data_file, 
-                   pal_numeric("hispr_hisplat", 
-                               df = as_data_file, 
-                               "Greens"), 
-                   "hispr_hisplat", 
-                   group_select = "Hispanic residents: total", 
-                   "Total", 
-                   labels_select = label_result) %>%
-    addpoly_legend(as_data_file, 
-                   pal_numeric("race_asian", 
-                               df = as_data_file, 
-                               "Oranges"), 
-                   "race_asian", 
-                   group_select = "Asian residents: total",
-                   "Total", 
-                   labels_select = label_result) %>%
-    addpoly_legend(as_data_file, 
-                   pal_numeric("race_other", 
-                               df = as_data_file, 
-                               "Greys"), 
-                   "race_other", 
-                   group_select = "'Other' residents: total", 
-                   "Total", 
-                   labels_select = label_result) %>%
-    addpoly_legend(as_data_file, 
-                   pal_numeric("hispr_nothisp_white_pct", 
-                               df = as_data_file, 
-                               "Reds"), 
-                   "hispr_nothisp_white_pct",
-                   group_select = "White (non-Hispanic) residents: percent", 
-                   "Percent", 
-                   labels_select = label_result) %>%
-    addpoly_legend(as_data_file, 
-                   pal_numeric("race_black_pct", 
-                               df = as_data_file, 
-                               "Blues"), 
-                   "race_black_pct", 
-                   group_select = "Black residents: percent", 
-                   "Percent", 
-                   labels_select = label_result) %>%
-    addpoly_legend(as_data_file, 
-                   pal_numeric("hispr_hisplat_pct", 
-                               df = as_data_file, 
-                               "Greens"),
-                   "hispr_hisplat_pct", 
-                   group_select = "Hispanic residents: percent", 
-                   "Percent", 
-                   labels_select = label_result) %>%
-    addpoly_legend(as_data_file, 
-                   pal_numeric("race_asian_pct", 
-                               df = as_data_file, 
-                               "Greys"), 
-                   "race_asian_pct", 
-                   group_select = "Asian residents: percent", 
-                   "Percent", 
-                   labels_select = label_result) %>%
-    addpoly_legend(as_data_file, 
-                   pal_numeric("race_other_pct", 
-                               df = as_data_file, 
-                               "Oranges"), 
-                   "race_other_pct", 
-                   group_select = "'Other' residents: percent", 
-                   "Percent", 
-                   labels_select = label_result) %>%
-    addLayersControl(overlayGroups = group_cols, 
-                     options = layersControlOptions(collapsed = collapsed_val),
-                     position = "topleft") %>%
-    hideGroup(group_cols[-1])
-  
-  return(map) 
-}
-
-map_produce <- map_funct_racedata() %>%
-  add_wards()
-
-```
-
-`r map_produce`
 
 ### Age, sex, and families
 
@@ -5915,7 +5764,7 @@ People 75 and over in general are still more likely to have a cognitive disabili
 
 6) [Race disability]
 
-7) [Race map]
+<!-- 7) [Race map] -->
 
 #### Race overall
 
@@ -6003,12 +5852,6 @@ plot_race_disability
 
 *Note: Due to the low number of NHPI and AIAN residents in Takoma Park, they are omitted from the above chart.*
 
-
-#### Race map
-
-`r text_map_race`
-
-`r map_produce`
 
 ### Housing
 
