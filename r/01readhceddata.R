@@ -414,6 +414,18 @@ vars_family_tenure <- variables %>%
   filter(grepl("TENURE BY FAMILIES AND PRESENCE OF OWN CHILDREN", concept)) %>%
   pull(name)
 
+vars_familynonfamilyhous <- variables %>%
+  filter(grepl("B11001", name)) %>%
+  pull(name)
+
+vars_familynonfamily_65plus <- variables %>%
+  filter(grepl("B09020", name)) %>%
+  pull(name)
+
+vars_houstype_poverty <- variables %>%
+  filter(grepl("POVERTY STATUS IN THE PAST 12 MONTHS BY HOUSEHOLD TYPE BY AGE OF HOUSEHOLDER", concept)) %>%
+  pull(name)
+
 
 #load datasets using constructed variables
 dfs_list <- list("Unemployment by race" = vars_unemploy_race,
@@ -464,7 +476,9 @@ dfs_list <- list("Unemployment by race" = vars_unemploy_race,
                  "Families by tenure" = vars_family_tenure,
                  "Families by poverty and race" = vars_family_poverty_race, 
                  "Families by public assistance"= vars_family_publicassist,
-                 "Family type and income" = vars_family_income_familytype)
+                 "Family type and income" = vars_family_income_familytype,
+                 "Households by family v nonfamily" = vars_familynonfamilyhous,
+                 "Households by family type and age and poverty" = vars_houstype_poverty)
 
 # dfs_list_vector <- unlist(dfs_list, use.names = FALSE, recursive = TRUE)
 
@@ -513,12 +527,12 @@ multi_year_process <- function(dfs_arg = dfs_list,
   return(output_dir)
 }
 
-multi_year_process(dfs_list[43:49], place_type = "place", year = 2019)
+multi_year_process(dfs_list[51:51], place_type = "place", year = 2019)
 
-multi_year_process(dfs_list[43:49], place_type = "state", year = 2019)
+multi_year_process(dfs_list[51:51], place_type = "state", year = 2019)
 
 
-multi_year_process(dfs_list[43:49], place_type = "county", year = 2019)
+multi_year_process(dfs_list[51:51], place_type = "county", year = 2019)
 
 # 
 # walk2(dfs_list[25:25], names(dfs_list)[25:25], ~ {

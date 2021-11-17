@@ -10,6 +10,8 @@ library(tidycensus)
 library(spdep)
 library(sf)
 library(leaflet)
+library(httr)
+library(jsonlite)
 
 library(leafletwrappers)
 library(glue)
@@ -61,6 +63,15 @@ bg_data_process <- bg_data_rename %>%
                       lang_asiapacific_limeng,
                       lang_otherlang_limeng),
     lang_limeng_pct = pct_round(lang_limeng, lang_tot),
+    houseinc_below50 = sum(houseinc_less10k,
+                           houseinc_1014,
+                           houseinc_1519,
+                           houseinc_2024,
+                           houseinc_2529,
+                           houseinc_3034,
+                           houseinc_3539,
+                           houseinc_4045,
+                           houseinc_4549),
     # households income less than 75k
     houseinc_below75 = sum(houseinc_less10k,
                            houseinc_1014,
@@ -76,6 +87,7 @@ bg_data_process <- bg_data_rename %>%
     # household income less than 100k
     houseinc_below100 = sum(houseinc_below75,
                             houseinc_7599),
+    houseinc_below50_pct = pct_round(houseinc_below50, houseinc_total),
     houseinc_below75_pct = pct_round(houseinc_below75, houseinc_total),
     houseinc_below100_pct = pct_round(houseinc_below100, houseinc_total),
     # household income less than 25k
@@ -102,7 +114,7 @@ bg_data_process <- bg_data_rename %>%
 
 # remove extraneous columns
 bg_data_process_select <- bg_data_process %>%
-  select(gisjoin, year, county, tracta, blkgrpa, name_e, educ_tot_bg, houseinc_total, incpovratio_total, lang_tot, educ_less_hs, educ_less_hs_pct, lang_limeng, lang_limeng_pct, houseinc_below75, houseinc_below75_pct, houseinc_below100, houseinc_below100_pct, houseinc_below30, houseinc_below30_pct, houseinc_below25, houseinc_below25_pct, incpovratio_below125, incpovratio_below125_pct, incpovratio_below150, incpovratio_below150_pct, pubassist_total, pubassist_yes, pubassist_yes_pct)
+  select(gisjoin, year, county, tracta, blkgrpa, name_e, educ_tot_bg, houseinc_total, incpovratio_total, lang_tot, educ_less_hs, educ_less_hs_pct, lang_limeng, lang_limeng_pct, houseinc_below50, houseinc_below50_pct, houseinc_below75, houseinc_below75_pct, houseinc_below100, houseinc_below100_pct, houseinc_below30, houseinc_below30_pct, houseinc_below25, houseinc_below25_pct, incpovratio_below125, incpovratio_below125_pct, incpovratio_below150, incpovratio_below150_pct, pubassist_total, pubassist_yes, pubassist_yes_pct)
 
 # identify block groups in takoma park
 bgs_2019 <- list("Block Group" = c("2", "3", "1", "2", "4", "3", "2", "1", "1", "3", "2", "1", "3", "1", "2", "1"),
@@ -366,12 +378,14 @@ labels_funct <- function(df_as_data){
         Total households with limited English proficiency: {df_as_data[i, 'lang_limeng']}<p></p>
         Total households below $25k: {df_as_data[i, 'houseinc_below25']}<p></p>
         Total households below $30k: {df_as_data[i, 'houseinc_below30']}<p></p>
+        Total households below $50k: {df_as_data[i, 'houseinc_below50']}<p></p>
         Total residents with income-poverty ratio below 1.25: {df_as_data[i, 'incpovratio_below125']}<p></p>
         Total households receiving public assistance: {df_as_data[i, 'pubassist_yes']}<p></p>
         Percent residents without high school or GED: {df_as_data[i, 'educ_less_hs_pct']}%<p></p>
         Percent households with limited English proficiency: {df_as_data[i, 'lang_limeng_pct']}%<p></p>
         Percent households below $25k: {df_as_data[i, 'houseinc_below25_pct']}%<p></p>
         Percent households below $30k: {df_as_data[i, 'houseinc_below30_pct']}%<p></p>
+        Percent households below $50k: {df_as_data[i, 'houseinc_below50_pct']}<p></p>
         Percent residents with income-poverty ratio below 1.25: {df_as_data[i, 'incpovratio_below125_pct']}%<p></p>
         Percent households receiving public assistance: {df_as_data[i, 'pubassist_yes_pct']}%")
     )
@@ -465,6 +479,8 @@ map_funct <- function(basemap = bg_shapes_join_montcounty,
                                      "Households below $25k: percent",
                                      "Households below $30k: total",
                                      "Households below $30k: percent",
+                                     "Households below $50k: total",
+                                     "Households below $50k: percent",
                                      "Residents below income-poverty ratio of 1.25: total",
                                      "Residents below income-poverty ratio of 1.25: percent",
                                      "Households receiving public assistance: total",
@@ -529,6 +545,20 @@ map_funct <- function(basemap = bg_shapes_join_montcounty,
                                              "Oranges"), 
                    "houseinc_below30_pct",
                    group_select = "Households below $30k: percent", 
+                   "Percent", 
+                   labels_select = label_result) %>%
+    addpoly_legend(as_data_file, pal_numeric("houseinc_below50", 
+                                             df = as_data_file, 
+                                             "Oranges"), 
+                   "houseinc_below50",
+                   group_select = "Households below $50k: total", 
+                   "Total", 
+                   labels_select = label_result) %>%
+    addpoly_legend(as_data_file, pal_numeric("houseinc_below50_pct", 
+                                             df = as_data_file, 
+                                             "Oranges"), 
+                   "houseinc_below50_pct",
+                   group_select = "Households below $50k: percent", 
                    "Percent", 
                    labels_select = label_result) %>%
     addpoly_legend(as_data_file, 
@@ -713,3 +743,286 @@ map_racedata_tp_2019 <- map_funct_racedata(bg_shapes_racedata_tp) %>%
   add_wards()
 
 htmlwidgets::saveWidget(map_racedata_tp_2019, "./data/output_data/leaflet_maps/map_racedata_tp_2019.html", selfcontained = T)
+
+
+
+## https://developer.ipums.org/docs/workflows/explore_metadata/nhgis/datasets/
+url_acs5 <- "https://api.ipums.org/metadata/nhgis/datasets/2015_2019_ACS5a?version=v1"
+
+result_acs5 <- httr::GET(url_acs5, httr::add_headers(Authorization = "59cba10d8a5da536fc06b59d88d35b38e82c48fb86ddeb4d0be496a7"))
+
+res_df_acs5 <- httr::content(result_acs5, "parsed", simplifyDataFrame = TRUE)
+head(res_df_acs5, n = 20L) # Contains metadata
+
+res_df_acs5$data_tables
+
+
+arpa_0023 <- read.csv("./data/nhgis/arpa_misc/nhgis0023_ds244_20195_2019_blck_grp.csv") %>%
+  rename(
+    
+  )
+
+vars_transport <-
+  data.frame(
+    num = c(
+      paste0("ALU1E00", 1:9),
+      paste0("ALU1E0", 10:21)
+    ),
+    var_name = c(
+      "transport_tot",
+      "transport_car",
+      "transport_car_alone",
+      "transport_car_pool",
+      "transport_car_pool_2",
+      "transport_car_pool_3",
+      "transport_car_pool_4",
+      "transport_car_pool_56",
+      "transport_car_pool_7plus",
+      "transport_pub",
+      "transport_pub_bus",
+      "transport_pub_subway",
+      "transport_pub_commuter",
+      "transport_pub_lightrail",
+      "transport_pub_ferry",
+      "transport_taxi",
+      "transport_motorcycle",
+      "transport_bike",
+      "transport_walk",
+      "transport_other",
+      "transport_home"
+    )
+  )
+
+vars_time <-
+  data.frame(
+    num = c(
+      paste0("ALU3E00", 1:9),
+      paste0("ALU3E0", 10:13)
+    ),
+    var_name = c(
+      "time_tot",
+      "time_less5",
+      "time_5_9",
+      "time_10_14",
+      "time_15_19",
+      "time_20_24",
+      "time_25_29",
+      "time_30_34",
+      "time_35_39",
+      "time_40_44",
+      "time_45_59",
+      "time_60_89",
+      "time_90plus"
+    )
+  )
+
+vars_houstype <- data.frame(
+  num = c(
+    paste0("ALVZE00", 1:9),
+    paste0("ALVZE0", 10:17)
+  ),
+  vars = c(
+    "fam_tot",
+    "fam_married",
+    "fam_married_child",
+    "fam_married_nochild",
+    "fam_cohab",
+    "fam_cohab_child",
+    "fam_cohab_nochild",
+    "fam_female",
+    "fam_female_alone",
+    "fam_female_child",
+    "fam_female_relatives",
+    "fam_female_nonrel",
+    "fam_male",
+    "fam_male_alone",
+    "fam_male_child",
+    "fam_male_relatives",
+    "fam_male_nonrel"
+  )
+)
+
+
+vars_houssize <- data.frame(
+  num = c(
+    paste0("ALV1E00", 1:9),
+    paste0("ALV1E0", 10:16)
+  ),
+  var = c(
+    "houssize_tot",
+    "houssize_family",
+    "houssize_family_2",
+    "houssize_family_3",
+    "houssize_family_4",
+    "houssize_family_5",
+    "houssize_family_6",
+    "houssize_family_7plus",
+    "houssize_nonfam",
+    "houssize_nonfam_1",
+    "houssize_nonfam_2",
+    "houssize_nonfam_3",
+    "houssize_nonfam_4",
+    "houssize_nonfam_5",
+    "houssize_nonfam_6",
+    "houssize_nonfam_7plus"
+  )
+)
+
+vars_povrelat <- data.frame(
+  num = c(
+    paste0("ALWWE00", 1:9),
+    paste0("ALWWE0", 10:41)
+  ),
+  var = c(
+    "fampovkid_tot",
+    "fampovkid_pov",
+    "fampovkid_pov_married",
+    "fampovkid_pov_married_child",
+    "fampovkid_pov_married_child_4less",
+    "fampovkid_pov_married_child_4lessand517",
+    "fampovkid_pov_married_child_517",
+    "fampovkid_pov_married_nochild",
+    "fampovkid_pov_other",
+    "fampovkid_pov_other_male",
+    "fampovkid_pov_other_male_child",
+    "fampovkid_pov_other_male_child_4less",
+    "fampovkid_pov_other_male_child_4lessand517",
+    "fampovkid_pov_other_male_child_517",
+    "fampovkid_pov_other_male_nochild",
+    "fampovkid_pov_other_female",
+    "fampovkid_pov_other_female_child",
+    "fampovkid_pov_other_female_child_4less",
+    "fampovkid_pov_other_female_child_4lessand517",
+    "fampovkid_pov_other_female_child_517",
+    "fampovkid_pov_other_female_nochild",
+    "fampovkid_nopov",
+    "fampovkid_nopov_married",
+    "fampovkid_nopov_married_child",
+    "fampovkid_nopov_married_child_4less",
+    "fampovkid_nopov_married_child_4lessand517",
+    "fampovkid_nopov_married_child_517",
+    "fampovkid_nopov_married_nochild",
+    "fampovkid_nopov_other",
+    "fampovkid_nopov_other_male",
+    "fampovkid_nopov_other_male_child",
+    "fampovkid_nopov_other_male_child_4less",
+    "fampovkid_nopov_other_male_child_4lessand517",
+    "fampovkid_nopov_other_male_child_517",
+    "fampovkid_nopov_other_male_nochild",
+    "fampovkid_nopov_other_female",
+    "fampovkid_nopov_other_female_child",
+    "fampovkid_nopov_other_female_child_4less",
+    "fampovkid_nopov_other_female_child_4lessand517",
+    "fampovkid_nopov_other_female_child_517",
+    "fampovkid_nopov_other_female_nochild"  
+  )
+)
+
+vars_employ <- data.frame(
+  num = c(
+    paste0("ALY3E00", 1:7)
+  ),
+  var = c(
+    "employ_tot",
+    "employ_labor",
+    "employ_labor_civ",
+    "employ_labor_civ_employed",
+    "employ_labor_civ_unemployed",
+    "employ_labor_army",
+    "employ_notlabor"
+  )
+)
+
+vars_sexocc <- data.frame(
+  num = c(
+    paste0("ALY6E00", 1:9),
+    paste0("ALY6E0", 10:73)
+  ),
+  var = c(
+    "sexocc_tot",
+    "sexocc_male",
+    "sexocc_male_mbsa",
+    "sexocc_male_mbsa_mbf",
+    "sexocc_male_mbsa_mbf_mng",
+    "sexocc_male_mbsa_mbf_bizfin",
+    "sexocc_male_mbsa_ces",
+    "sexocc_male_mbsa_ces_compmath",
+    "sexocc_male_mbsa_ces_archeng",
+    "sexocc_male_mbsa_ces_lifephyssocsci",
+    "sexocc_male_mbsa_elcam",
+    "sexocc_male_mbsa_elcam_socialservice",
+    "sexocc_male_mbsa_elcam_legal",
+    "sexocc_male_mbsa_elcam_edlib",
+    "sexocc_male_mbsa_elcam_artsdesentmedia",
+    "sexocc_male_mbsa_ht",
+    "sexocc_male_mbsa_ht_hlthdiagtrt",
+    "sexocc_male_mbsa_ht_htlhtech",
+    "sexocc_male_service",
+    "sexocc_male_service_healthsupp",
+    "sexocc_male_service_protserv",
+    "sexocc_male_service_protserv_fire",
+    "sexocc_male_service_protserv_lawenforce",
+    "sexocc_male_service_foodprep",
+    "sexocc_male_service_cleanmaint",
+    "sexocc_male_service_personalcare",
+    "sexocc_male_salesoffice",
+    "sexocc_male_salesoffice_sales",
+    "sexocc_male_salesoffice_office",
+    "sexocc_male_ncm",
+    "sexocc_male_ncm_farmfishforest",
+    'sexocc_male_ncm_construct',
+    "sexocc_male_ncm_installmaintrepair",
+    "sexocc_male_ptm",
+    "sexocc_male_ptm_product",
+    "sexocc_male_ptm_transport",
+    "sexocc_male_ptm_materialmov",
+    "sexocc_female",
+    "sexocc_female_mbsa",
+    "sexocc_female_mbsa_mbf",
+    "sexocc_female_mbsa_mbf_mng",
+    "sexocc_female_mbsa_mbf_bizfin",
+    "sexocc_female_mbsa_ces",
+    "sexocc_female_mbsa_ces_compmath",
+    "sexocc_female_mbsa_ces_archeng",
+    "sexocc_female_mbsa_ces_lifephyssocsci",
+    "sexocc_female_mbsa_elcam",
+    "sexocc_female_mbsa_elcam_socialservice",
+    "sexocc_female_mbsa_elcam_legal",
+    "sexocc_female_mbsa_elcam_edlib",
+    "sexocc_female_mbsa_elcam_artsdesentmedia",
+    "sexocc_female_mbsa_ht",
+    "sexocc_female_mbsa_ht_hlthdiagtrt",
+    "sexocc_female_mbsa_ht_htlhtech",
+    "sexocc_female_service",
+    "sexocc_female_service_healthsupp",
+    "sexocc_female_service_protserv",
+    "sexocc_female_service_protserv_fire",
+    "sexocc_female_service_protserv_lawenforce",
+    "sexocc_female_service_foodprep",
+    "sexocc_female_service_cleanmaint",
+    "sexocc_female_service_personalcare",
+    "sexocc_female_salesoffice",
+    "sexocc_female_salesoffice_sales",
+    "sexocc_female_salesoffice_office",
+    "sexocc_female_ncm",
+    "sexocc_female_ncm_farmfishforest",
+    'sexocc_female_ncm_construct',
+    "sexocc_female_ncm_installmaintrepair",
+    "sexocc_female_ptm",
+    "sexocc_female_ptm_product",
+    "sexocc_female_ptm_transport",
+    "sexocc_female_ptm_materialmov"
+  )
+)
+
+
+acs_df_meta <- res_df_acs5$data_tables
+
+cols_arpa_0023 <- colnames(arpa_0023)
+url <- 
+
+url_al1u <- "https://api.ipums.org/metadata/nhgis/datasets/2015_2019_ACS5a/data_tables/ALWW?version=v1"
+
+result_al1u <- GET(url_al1u, add_headers(Authorization = "59cba10d8a5da536fc06b59d88d35b38e82c48fb86ddeb4d0be496a7"))
+
+res_df_al1u <- httr::content(result_al1u, "parsed", simplifyDataFrame = TRUE)
