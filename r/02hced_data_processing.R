@@ -244,6 +244,56 @@ process_hous_povage <- function(df){
   process_final
 }
 
+process_famtype_incomelev <- function(df){
+  
+  process <- df %>%
+    acsprocess::separate_label(names_vector = c(NA, NA, "famtype", "childstatus", "income", "other"))
+  
+  other_process <- process %>%
+    dplyr::filter(grepl("Other family", famtype)) %>%
+    dplyr::mutate(famtype = childstatus,
+                  childstatus = income,
+                  income = other) %>%
+    dplyr::filter(!is.na(famtype)) %>%
+    dplyr::select(-other)
+  
+  process_final <- process %>%
+    dplyr::filter(!grepl("Other family", famtype)) %>%
+    dplyr::select(-other) %>%
+    rbind(other_process) %>%
+    # filter(grepl("Takoma", name)) %>%
+    acsprocess::total_col_add(c("families" = "famtype", "type_fams" = "childstatus", "fam_child" = "income"), join_col = c("name", "famtype", "childstatus"))
+  
+  
+}
+
+# famtype_incomepov <- data_puller("acs52019/all_municip_acs5_", "Family type by income to poverty ratio") %>%
+#   puller_funct()
+# 
+# process <- df %>%
+#   acsprocess::separate_label(names_vector = c(NA, NA, "famtype", "childstatus", "income", "other"))
+# 
+# other_process <- process %>%
+#   dplyr::filter(grepl("Other family", famtype)) %>%
+#   dplyr::mutate(famtype = childstatus,
+#                 childstatus = income,
+#                 income = other) %>%
+#   dplyr::filter(!is.na(famtype)) %>%
+#   dplyr::select(-other)
+# 
+# process_final <- process %>%
+#   dplyr::filter(!grepl("Other family", famtype)) %>%
+#   dplyr::select(-other) %>%
+#   rbind(other_process) %>%
+#   # filter(grepl("Takoma", name)) %>%
+#   acsprocess::total_col_add(c("families" = "famtype", "type_fams" = "childstatus", "fam_child" = "income"), join_col = c("name", "famtype", "childstatus"))
+# 
+# 
+# process_famtype_incomepov <- function(df){
+#   
+# }
+
+
 
 #### build datasets
 ## function to build and save all datasets of interest
@@ -741,6 +791,13 @@ data_creator <- function(root_string, place, no_pull = T, desc_year = "acs5_2019
     process_hous_povage
   
   data_saver(hous_famtype_pov_age, place, "hous_famtype_pov_age", desc_year = desc_year)
+  
+  # family type by income-level
+  famtype_income_lev <- data_puller(root_string = root_string, data_string = "Family type by income-level") %>%
+    puller_funct(place_string = place, no_pull = no_pull)  %>%
+    process_famtype_incomelev
+  
+  data_saver(famtype_income_lev, place, "famtype_income_lev", desc_year = desc_year)
   
 }
 

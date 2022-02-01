@@ -5169,7 +5169,7 @@ plot_ly(age_grped,
 
 [The Census defines](https://www.census.gov/programs-surveys/cps/technical-documentation/subject-definitions.html#familyhousehold) a household as all people in a housing unit. A housing unit is a separate living quarters, meaning occupants have a dedicated space or structure for them. A single-family house is a housing unit, one apartment in an apartment building is a housing unit, and one room in a grouphouse is a housing unit. A householder is the person renting or owning a housing unit (in the case of a couple, it could be either of the two).
 
-**Of Takoma Park's `r pull_tot_households %>% commafy` households, `r pull_hous_family %>% commafy` are family households--meaning they are rented or owned by a householder who lives with at least one family member--and `r pull_hous_nonfamily %>% commafy` are nonfamily. The largest share of households are married-couple householders (representing `r pull_housfam_married %>% commafy` households), followed by `r pull_housfam_alone %>% commafy` householders living alone and `r pull_housfam_singfem %>% commafy` single-female family households.
+**Of Takoma Park's `r pull_tot_households %>% commafy` households, `r pull_hous_family %>% commafy` are family households--meaning they are rented or owned by a householder who lives with at least one family member--and `r pull_hous_nonfamily %>% commafy` are nonfamily.** The largest share of households are married-couple householders (representing `r pull_housfam_married %>% commafy` households), followed by `r pull_housfam_alone %>% commafy` householders living alone and `r pull_housfam_singfem %>% commafy` single-female family households.
 
 
 ```{r plot plots famtype}

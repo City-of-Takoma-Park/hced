@@ -1,0 +1,787 @@
+---
+title: "&nbsp;"
+date: ""
+output:
+  html_document:
+    theme: "yeti"
+    number_sections: false
+    fig_width: 8
+    fig_height: 5
+    fig_caption: yes
+
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE, out.width = '100%')
+
+
+
+library(tidycensus)
+library(sf)
+library(leaflet)
+library(tidyverse)
+library(plotly)
+# library(plyr)
+library(dplyr)
+library(reprex)
+library(rlang)
+library(glue)
+library(RColorBrewer)
+
+# custom packages
+library(acsprocess)
+library(tpfuncts)
+library(leafletwrappers)
+library(plotlywrappers)
+
+# race_formatter <- function(df, race_col){
+#   df %>%
+#     mutate(race = acsprocess::race_recode({{ race_col }}))
+# }
+
+pal_race <- brewer.pal(10, "Accent")[c(-4, -5)]
+
+
+# function to generate graphs of a specific race by location
+race_breakout_gen <- function(df, 
+                              title, 
+                              show_legend = FALSE,
+                              x = "educ_recode",
+                              name = "location",
+                              y = "cumul_pct",
+                              type = "scatter",
+                              range = c(0, 110),
+                              ytick = 20) {
+  
+  # browser()
+  
+  name <- sym(name)
+  name <- enquo(name) %>%
+    quo_set_env(global_env())
+  
+  x <- sym(x)
+  x <- enquo(x) %>%
+    quo_set_env(global_env())
+  
+  y <- sym(y)
+  y <- enquo(y) %>%
+    quo_set_env(global_env())
+  
+  plot_ly(data = df %>%
+            race_factor(),
+          type = type,
+          mode = "lines+markers",
+          legendgroup = name,
+          showlegend = show_legend,
+          name = name,
+          color = name,
+          y = y,
+          x = x,
+          hovertext = ~ glue("Significant differences: {signif_check}"),
+          title = title) %>%
+    subplot_title(title = title) %>%
+    layout(xaxis = list(title = ""),
+           # showgrid = FALSE)
+           yaxis = list(title = "",
+                        dtick = ytick,
+                        tickmode = "linear",
+                        range = range))
+  # showgrid = FALSE))
+}
+
+```
+
+# ![takoma park logo](images/logo.png){height=80px}  Takoma Park Data Explorer {- .tabset}
+
+***About***: This webpage allows Takoma Park residents and staff to learn more about their city through data. Data comes from the Census's [2015-2019 American Community Survey](https://www.census.gov/programs-surveys/acs). Each heading tab opens to a "Summary" sub-tab; click on other sub-tabs to see data-visualizations and detailed explanations. All graphics are interactive; you can click and double-click on legend items to hide or show them, and mousing over graphics will show data-values. The "Methodology" tab describes data sources and statistical significance. Code used to produce this webpage can be found on the [City's Github page](https://github.com/City-of-Takoma-Park/hced). Similar web-maps can be found in the [City's interactive demographic map](https://takomaparkmd.gov/news/learn-about-your-neighborhood-with-interactive-maps/) and in the [City's Social Vulnerability Index maps](https://takomaparkmd.gov/government/housing-and-community-development/planning-and-community-development/data-driven-approach-to-disaster-pandemic-response/).
+
+Please send any questions, comments, or feedback to Public Administration Specialist Dan Powers at danielp@takomaparkmd.gov.
+
+```{r demographics race, echo=FALSE}
+
+data_binder <- function(file_root){
+  # browser()
+  acsprocess::data_binder(file_root = file_root, dir_root = "./data/output_data/acs5_2019/tp_spec/")
+}
+
+```
+
+
+```{r hous famtype}
+
+recode_houstype <- function(df, col_name = hous_type){
+  recode_string <- function(string){
+    process <- gsub(" householder, no (spouse or partner|spouse) present:", "", string) %>%
+      gsub(":", "", .) %>%
+      gsub("Married-couple", "Married", .) %>%
+      gsub("Male", "Male", .) %>%
+      gsub("Female", "Female", .) %>%
+      gsub(" household", "", .) %>%
+      gsub("-", " ", .) %>%
+      gsub(" family", "", .)
+    
+  }
+  
+  df %>%
+    dplyr::mutate({{col_name}} := recode_string({{col_name}}))
+}
+
+recode_housfam <- function(df, houscol = houstype, famcol = famtype){
+  
+  recode_hous <- function(string){
+    gsub(" households:", "", string)
+  }
+  
+  recode_famtype <- function(string){
+    str <- string %>%
+      gsub(" family", "", .) %>%
+      gsub(", no spouse present", "", .) %>%
+      gsub("not living alone", "living with others", .) %>%
+      gsub("Female householder", "Single female", .) %>%
+      gsub("Male householder", "Single male", .)
+    
+    case_when(!grepl("Householder", str) ~ paste0(str, " family"),
+              TRUE ~ str)
+    
+  }
+  
+  df %>%
+    dplyr::mutate({{houscol}} := recode_hous({{houscol}}),
+                  {{famcol}} := recode_famtype({{famcol}}))
+  
+}
+
+hous_famtype <- data_binder("hous_famtype_overall") %>%
+  # recode_houstype(famtype) %>%
+  derive_pct_est_moe("pct_houstyp", aggregate_est = "type_households", aggregate_moe = "type_households_moe") %>%
+  derive_pct_est_moe("pct_allhous", aggregate_est = "households", aggregate_moe = "households_moe") %>%
+  name_num_formatter() %>%
+  signif_mont_tp(join_col = c("houstype", "famtype"), name_pct = pct_allhous) %>%
+  signif_checker(signif_cols = list("MC" = "signif_mont", "MD" = "signif_maryland")) %>%
+  recode_housfam()
+
+plot_hous_famtype_tp <- plot_ly(hous_famtype %>%
+                                  filter(grepl("Takoma", location)),
+                                x = ~ houstype,
+                                y = ~ estimate,
+                                color = ~ famtype,
+                                hovertext = ~ glue(
+                                  "Percent household-type: {pct_houstyp}%
+                                Margin of error: {moe %>% commafy}"),
+                                text = ~ glue(
+                                  "Total:
+                                {estimate %>% commafy}"),
+                                textposition = "inside",
+                                textfont = list(color = "black"),
+                                name = ~ famtype,
+                                type = "bar",
+                                legendgroup = ~ famtype,
+                                showlegend = T) %>%
+  layout(barmode = "stack",
+         title = "Takoma Park households by family-type",
+         yaxis = list(title = "Households"),
+         xaxis = list(title = "Household type"))
+
+plot_hous_famtype_loc <- plot_ly(hous_famtype,
+                                 x = ~ location,
+                                 showlegend = F,
+                                 text = ~ glue("{pct_allhous}%"),
+                                 textposition = "inside",
+                                 textfont = list(color = "black"),
+                                 hovertext = ~ glue("Total: {estimate %>% commafy}
+                                                    Margin of error: {pct_moe}%
+                                                    Significant differences: {signif_check}"),
+                                 y = ~ pct_allhous,
+                                 color = ~ famtype,
+                                 name = ~ famtype,
+                                 legendgroup = ~ famtype,
+                                 type = "bar") %>%
+  layout(xaxis = list(title = ""),
+         yaxis = list(title = "Percent of households"),
+         title = "Households by familty type and location")
+
+pull_hous_famtype <- pull_creator(hous_famtype, c("location", "famtype"), default_pull = "pct_allhous")
+
+pull_tot_households <- (hous_famtype %>%
+                          filter(location == 'Takoma Park') %>%
+                          pull(households))[1]
+
+pull_hous_family <- pull_hous_famtype(c("Takoma", "Married"), "type_households")
+
+pull_hous_nonfamily <- pull_hous_famtype(c("Takoma", "Householder living"), "type_households")[1]
+
+pull_housfam_married <- pull_hous_famtype(c("Takoma", "Married"), "estimate")
+
+pull_housfam_alone <- pull_hous_famtype(c("Takoma", "living alone"), "estimate")
+
+pull_housfam_singfem <- pull_hous_famtype(c("Takoma", "Single female"), "estimate")
+
+pull_housfam_singfem_pct <- pull_hous_famtype(c("Takoma", "Single female"))
+
+pull_housfam_married_pct <- pull_hous_famtype(c("Takoma", "Married"))
+
+pull_housfam_singfem_pct_mont <- pull_hous_famtype(c("Mont", "Single female"))
+
+pull_housfam_married_pct_mont <- pull_hous_famtype(c("Mont", "Married"))
+
+```
+
+
+```{r family}
+
+# function to recode house type
+recode_houstype <- function(df, col_name = hous_type){
+  recode_string <- function(string){
+    process <- gsub(" householder, no (spouse or partner|spouse) present:", "", string) %>%
+      gsub(":", "", .) %>%
+      gsub("Married-couple", "Married", .) %>%
+      gsub("Male", "Male", .) %>%
+      gsub("Female", "Female", .) %>%
+      gsub(" household", "", .) %>%
+      gsub("-", " ", .) %>%
+      gsub(" family", "", .)
+    
+  }
+  
+  df %>%
+    dplyr::mutate({{col_name}} := recode_string({{col_name}}))
+}
+
+
+recode_hous_ppl <- function(df, col_name = hous_people){
+  
+  factor <- c(
+    "With own children (< 18)",
+    "With roommates",
+    "With relatives",
+    "Alone"
+  )
+  
+  recode_string <- function(string){
+    case_when(
+      grepl("With relatives", string) ~ factor[3],
+      grepl("(no own children)|(alone)", string) ~ factor[4],
+      grepl(" own children ", string) ~ factor[1],
+      grepl("nonrelatives", string) ~ factor[2]
+    )
+  }
+  
+  df %>%
+    dplyr::mutate({{col_name}} := factor(
+      recode_string({{col_name}}),
+      factor,
+      factor
+    ))
+  
+}
+
+
+
+family_overall <- data_binder(file_root = "family_overall") %>%
+  name_num_formatter() %>%
+  recode_houstype() %>%
+  recode_hous_ppl()
+
+# process by household type and occupants
+family_hous_ppl_processed <- family_overall %>%
+  process_df_tp(
+    group_cols = c("location", "hous_type", "hous_people"), 
+    overall_cols = c("location", "hous_type"),
+    name_col = "hous_ppl"
+  )
+
+# filter to tp
+# tp_family_hous_ppl <- family_hous_ppl_processed %>%
+#   filter(grepl("Takoma", location))
+
+# # takoma park
+# plot_family_byocc_tp <- plot_ly(tp_family_hous_ppl,
+#         x = ~ hous_type,
+#         y = ~ hous_ppl_est,
+#         text = ~ glue("{pct_hous_ppl}%"),
+#         textposition = "inside", 
+#         textfont = list(color = "black"),
+#         name = ~ hous_people,
+#         type = "bar") %>%
+#   layout(
+#     title = "Takoma Park households by relationship and co-occupants",
+#     yaxis = list(title = "Households"),
+#     xaxis = list(title = "Household type"),
+#     barmode = "stack"
+#   )
+
+
+
+```
+
+
+```{r pull family hous ppl}
+# generate plots family/occupants by place
+
+plot_loc_family_hous_ppl <- function(typ_val, showleg = F, yval = 1.1) {
+  df <- family_hous_ppl_processed %>%
+    filter(grepl(typ_val, hous_type))
+  
+  plot_ly(df,
+          x = ~ location,
+          y = ~ pct_hous_ppl,
+          color = ~ hous_people,
+          hovertext = ~ glue(
+            "Total: {hous_ppl_est %>% commafy}
+            Margin of error: {pct_moe}%
+            Significant differences: {signif_check}"),
+          legendgroup = ~ hous_people,
+          showlegend = showleg,
+          text = ~ glue("{pct_hous_ppl}%"),
+          textposition = "inside",
+          textfont = list(color = "black", opacity = 0.8),
+          type = "bar") %>%
+    layout(xaxis = list(title = ""),
+           yaxis = list(title = ""),
+           barmode = "stack") %>%
+    subplot_title(paste0(typ_val, " percent"), .y = yval)
+}
+
+
+pull_family_housppl <- pull_creator(family_hous_ppl_processed, 
+                                    c("location", "hous_type", "hous_people"),
+                                    "pct_hous_ppl")
+
+pull_tp_married_child_pct <- pull_family_housppl(c("Takoma", "Married", "children"))
+pull_md_married_child_pct <- pull_family_housppl(c("Maryland", "Married", "children"))
+pull_mc_married_child_pct <- pull_family_housppl(c("Montgomery", "Married", "children"))
+
+pull_tp_male_alone_pct <- pull_family_housppl(c("Takoma", "^male", "alone"))
+pull_md_male_alone_pct <- pull_family_housppl(c("Maryland", "^male", "alone"))
+pull_mc_male_alone_pct <- pull_family_housppl(c("Montgomery", "^male", "alone"))
+
+pull_tp_cohab_child_pct <- pull_family_housppl(c("Takoma", "cohab", "children"))
+pull_tp_female_child_pct <- pull_family_housppl(c("Takoma", "female", "children"))
+pull_tp_male_child_pct <- pull_family_housppl(c("Takoma", "^male", "children"))
+pull_tp_female_roommate_pct <- pull_family_housppl(c("Takoma", "female", "roommate"))
+pull_tp_male_roommate_pct <- pull_family_housppl(c("Takoma", "^male", "roommate"))
+
+
+```
+
+
+```{r family poverty age}
+
+# family_pov_age <- family_poverty %>%
+#   derive_pct_est_moe("age_pct_pov", aggregate_est = "pov_type_occ_tot", aggregate_moe = "pov_type_occ_tot_moe")
+
+```
+
+
+```{r family poverty race}
+
+fam_pov_race <- data_binder("family_poverty_race") %>%
+  filter(!grepl("white alone householder", race)) %>%
+  mutate(race = gsub(pattern = " householder", "", race)) %>%
+  race_recode(race_col = race) %>%
+  name_num_formatter() %>%
+  recode_houstype(fam_type) %>%
+  recode_fam_occupants() %>%
+  recode_child_age() %>%
+  mutate(typ_child = glue("{fam_type}: {tolower(fam_occupants)}"))
+# 
+# fam_pov_race_process <- fam_pov_race %>%
+#   process_df_tp(
+#     group_cols = c("location", "race", "typ_child", "pov_status"),
+#     overall_cols = c("location", "race", "typ_child"),
+#     name_col = "pov_race"
+#   ) %>%
+#   filter(!race %in% tp_race_cats,
+#          grepl("below ", pov_status),
+#   )
+# 
+# # plot_fam_pov_race_tp_pct <- plot_ly(
+# #   filter(fam_pov_race_process, grepl("Takoma", location)),
+# #   x = ~ race,
+# #   y = ~ pct_pov_race,
+# #   color = ~ typ_child,
+# #   name = ~ typ_child,
+# #   legendgroup = ~ typ_child,
+# #   text = ~ glue("Total: {pov_race_est}
+# #                 Margin of error: {pct_moe}%
+# #                 Significant differences: {signif_check}")
+# # )
+# 
+# plot_fam_pov_race_tp_tot <- plot_ly(
+#   filter(fam_pov_race_process, grepl("Takoma", location)),
+#   x = ~ race,
+#   y = ~ pov_race_est,
+#   color = ~ typ_child,
+#   name = ~ typ_child,
+#   legendgroup = ~ typ_child,
+#   textposition = "inside",
+#   textfont = list(color = "black",
+#                   opacity = 0.8),
+#   # text = ~ glue("{pct_pov_race}%\npoverty"),
+#   hovertext = ~ glue("Percent poverty: {pct_pov_race}%
+#   Race/family type total: {tot_est %>% commafy}
+#   Margin of error: {pov_race_moe}
+#   Significant differences: {signif_check}")) %>%
+#   layout(
+#     # barmode = "stack",
+#          title = "Takoma Park families in poverty by race",
+#          xaxis = list(title = ""),
+#          yaxis = list(title = "Families in poverty"))
+# 
+# gen_plot_fam_pov_race_loc <- function(race_val, showleg){
+#   df <- fam_pov_race_process %>%
+#     filter(grepl(race_val, race)) %>%
+#     mutate(typ_child = gsub(": ", "\n", typ_child))
+# 
+#   plot_ly(df,
+#           x = ~ location,
+#           y = ~ pct_pov_race,
+#           name = ~ typ_child,
+#           hovertext = ~ glue("Total: {pov_race_est %>% commafy}
+#                              Margin of error: {pov_race_moe}%
+#                              Race/family-type total: {tot_est}
+#                              Significant differences: {signif_check}"),
+#           color = ~ typ_child,
+#           type = "bar",
+#           showlegend= showleg,
+#           legendgroup = ~ typ_child) %>%
+#     layout(xaxis = list(title = ""),
+#            yaxis = list(title = "Poverty rate",
+#                         range = c(0, 40)),
+#            title = "") %>%
+#     subplot_title(race_val)
+# 
+# }
+
+
+
+```
+
+
+<!-- ```{r plot family poverty race} -->
+
+<!-- # omitting because too small samples -->
+<!-- plots_fam_pov_race_loc <- subplot( -->
+<!--   map(c("White", "Black", "Hispanic"), ~ gen_plot_fam_pov_race_loc(.x, ifelse(.x == "White", T, F))), shareY = T -->
+<!-- ) %>% -->
+<!--   layout(xaxis = list(title = ""), -->
+<!--          yaxis = list(title = "Poverty-rate"), -->
+<!--          title = "Family poverty rates by race and location") -->
+
+<!-- subplot(plots_fam_pov_race_loc, plot_fam_pov_race_tp_tot, nrows = 2) -->
+
+<!-- ``` -->
+
+
+
+<!-- ```{r family race} -->
+
+<!-- fam_race <- fam_pov_race %>% -->
+<!--   process_df_tp( -->
+<!--     group_cols = c("location", "race", "typ_child"), -->
+<!--     overall_cols = c("location", "race"),  -->
+<!--     name_col = "typ" -->
+<!--   ) %>% -->
+<!--   filter(!race %in% tp_race_cats) -->
+
+<!-- plot_tp_fam_race <- plot_ly( -->
+<!--   fam_race %>%  -->
+<!--     filter(grepl("Takoma", location)), -->
+<!--   x = ~ race, -->
+<!--   y = ~ typ_est, -->
+<!--   name = ~ typ_child, -->
+<!--   color = ~ typ_child, -->
+<!--   text = ~ glue("{pct_typ %>% round(1)}%"), -->
+<!--   hovertext = ~ glue("Percent: {pct_typ}% -->
+<!--   Margin of error: {pct_moe}% -->
+<!--   Race total: {tot_est} -->
+<!--   Significant differences: {signif_check}"), -->
+<!--   textposition = "inside", -->
+<!--   textfont = list( -->
+<!--     color = "black" -->
+<!--   ), -->
+<!--   legendgroup = ~ typ_child, -->
+<!--   type = "bar") %>% -->
+<!--   layout(barmode = "stack", -->
+<!--          title = "Takoma Park families by type and children", -->
+<!--          xaxis = list(title = ""), -->
+<!--          yaxis = list(title = "Families")) -->
+
+
+
+<!-- # gen_plot_fam_race <- function(race_val, showleg = F){ -->
+<!-- #    -->
+<!-- #   ytitle <- case_when(showleg ~ "Percent households", -->
+<!-- #                       T ~ "") -->
+<!-- #    -->
+<!-- #   plot_ly(fam_race %>% -->
+<!-- #             filter(grepl(race_val, race)), -->
+<!-- #           x = ~ location, -->
+<!-- #           y = ~ pct_typ, -->
+<!-- #           name = ~ typ_child, -->
+<!-- #           showlegend = showleg, -->
+<!-- #           color = ~ typ_child, -->
+<!-- #           text = ~ glue("{pct_typ}%"), -->
+<!-- #           textposition = "inside", -->
+<!-- #           # legendgroup = ~ typ_child, -->
+<!-- #           textfont = list(color = "black"), -->
+<!-- #           legendgroup = ~ typ_child, -->
+<!-- #           hovertext = ~ glue("Total: {typ_est} -->
+<!-- #                              Margin of error: {pct_moe}% -->
+<!-- #                              Significant differences: {signif_check}"), -->
+<!-- #           type = "bar") %>% -->
+<!-- #     layout(barmode = "stack", -->
+<!-- #            xaxis = list(title = ""), -->
+<!-- #            title = "Race by family type", -->
+<!-- #            yaxis = list(title = ytitle)) %>% -->
+<!-- #     subplot_title(race_val, .y = 1.1) -->
+<!-- #    -->
+<!-- # }  -->
+<!-- #  -->
+<!-- # plots_fam_race <- subplot(map(levels(fam_race$race)[-c(7:8)], ~ gen_plot_fam_race(.x, ifelse(.x == "Hispanic", T, F))), shareY = T, nrows = 3, shareX = T) %>%  -->
+<!-- #   layout(title = "Percent households by race and location", -->
+<!-- #          xaxis = list(title = "")) -->
+
+<!-- # plots_fam_race -->
+
+<!-- # text_ -->
+
+
+
+<!-- plot_tp_fam_race -->
+
+<!-- text_fam_race <- glue("") -->
+
+<!-- ``` -->
+
+## Demographics {- .tabset .tabset-pills}
+
+<!-- ### Summary {-} -->
+
+### Race
+
+#### Table of contents
+
+
+### Age, sex, and families
+
+#### Table of contents
+
+#### Household-type
+
+[The Census defines](https://www.census.gov/programs-surveys/cps/technical-documentation/subject-definitions.html#familyhousehold) a household as all people in a housing unit. A housing unit is a separate living quarters, meaning occupants have a dedicated space or structure for them. A single-family house is a housing unit, one apartment in an apartment building is a housing unit, and one room in a grouphouse is a housing unit. A householder is the person renting or owning a housing unit (in the case of a couple, it could be either of the two).
+
+
+
+
+### Foreign-born residency, birthplace, and English proficiency
+
+#### Table of contents
+
+
+### Disability
+
+#### Table of contents
+
+
+
+## Race and Ethnicity {.tabset .tabset-pills}
+
+### Racial demographics
+
+#### Table of contents
+
+## Housing {- .tabset .tabset-pills}
+
+### Housing
+
+#### Table of contents
+
+
+## Poverty, employment, and income {- .tabset .tabset-pills}
+
+### Income
+
+#### Table of contents
+
+
+#### Income-level by family type
+
+```{r inc lev family}
+
+data_binder <- function(file_root){
+  # browser()
+  acsprocess::data_binder(file_root = file_root, dir_root = "./data/output_data/acs5_2019/tp_spec/")
+}
+
+
+family_inclev <- data_binder("famtype_income_lev") %>%
+  name_num_formatter()
+
+tp_family_inclev <- family_inclev %>%
+  filter(grepl("Takoma", name))
+
+famtypes <- tp_family_inclev$famtype %>% unique
+
+recode_famtypes_inclev <- function(string){
+  case_when(grepl("Married", string) ~ "Married",
+            grepl("Female", string) ~ "Single female",
+            grepl("Male", string) ~ "Single male")
+  
+}
+
+tp_family_inclev_process <- tp_family_inclev %>%
+  income_recode(income_col = income, new_income = "new_income") %>%
+  mutate(new_fam = recode_famtypes_inclev(famtype),
+         new_child = case_when(grepl("With own", childstatus) ~ "With children",
+                               grepl("No own", childstatus) ~ "No children"),
+         new_fam_child = paste0(new_fam, ", ", tolower(new_child)))
+
+tp_family_inclev_process <- tp_family_inclev_process %>%
+  mutate(pct_est = pct_round(estimate, fam_child)) %>%
+  group_by(new_fam_child) %>%
+  arrange(new_income) %>%
+  mutate(cumul_pct = cumsum(pct_est),
+         cumul_tot = cumsum(estimate))
+
+plot_cumulpct_famincchild <- plot_ly(tp_family_inclev_process %>%
+          filter(grepl("Takoma", name)),
+        x = ~ new_income,
+        y = ~ cumul_pct,
+        color = ~ new_fam_child,
+        name = ~ new_fam_child,
+        legendgroup = ~ new_fam_child,
+        type = "scatter",
+        text = ~ glue(
+          "Cumulative total: {cumul_tot %>% commafy}
+          Percent: {pct_est}%
+          Total: {estimate}"
+        ),
+        mode = "line+marker") %>%
+  layout(xaxis = list(title = "Income-range"),
+         yaxis = list(title = "Cumulative percent")) %>%
+  subplot_title("Cumulative percent of households")
+
+
+plot_tot_famincchild <- plot_ly(tp_family_inclev_process %>%
+          filter(grepl("Takoma", name)),
+        x = ~ new_income,
+        y = ~ cumul_tot,
+        color = ~ new_fam_child,
+        name = ~ new_fam_child,
+        showlegend = F,
+        legendgroup = ~ new_fam_child,
+        type = "scatter",
+        text = ~ glue(
+          "Percent: {pct_est}%"
+        ),
+        # textposition = "inside",
+        # textfont = list(color = "black"),
+        mode = "line+marker") %>%
+  layout(xaxis = list(title = "Income-range"),
+         # barmode = "stack",
+         yaxis = list(title = "Cumulative percent")) %>%
+  subplot_title("Cumulative households")
+
+subplot(plot_tot_famincchild,
+        plot_cumulpct_famincchild,
+        nrows = 2,
+        shareX = T) %>%
+  layout(title = "Cumulative households by income level and family")
+
+```
+
+### Poverty
+
+#### Table of contents
+
+#### Poverty {-}
+
+The ACS makes detailed data available on residents' income relative to the poverty threshold. The official US poverty line for a family of four in 2021 is \$[26,500](https://aspe.hhs.gov/2021-poverty-guidelines). The line underestimates actual poverty; it is [outdated](https://www.americanprogress.org/issues/poverty/news/2020/03/05/481314/poverty-line-matters-isnt-capturing-everyone/) and does not account for costs other than food (e.g., housing, transportation, medical costs). A number of federal programs base eligibility on the poverty line; for example, households cannot earn more than 130% of the federal poverty line to qualify for the Supplemental Nutrition Assistance Program (SNAP).
+
+
+#### Poverty by household-type and age
+
+The small sample sizes and high margin of error make it difficult to draw conclusions about poverty-levels broken out by age and household type, and family-type broken out by race. It still may be useful to see Census totals, while keeping in mind the high margin of error.
+
+By age and household type, the largest number of households in poverty are female nonfamily householders older than 65 making up `r pull_fem_nf_pov_65 %>% commafy`, followed by single-female householders aged 25-44--representing `r pull_fem_fam_pov_2544 %>% commafy`--and single male nonfamily households aged 45 to 64, representing `r pull_mal_nf_pov_4564 %>% commafy`.
+
+```{r family poverty plot}
+plot_hous_type_age_pov
+
+```
+
+
+### Unemployment
+
+#### Table of contents
+
+
+### Education
+
+#### Table of contents
+
+
+
+### Internet access
+
+#### Table of contents
+
+
+### Health insurance
+
+#### Table of contents
+
+
+## Methodology {-}
+
+### Methodology
+
+#### Data sources
+
+This webpage displays selected data from the 2015-2019 American Community Survey. The webpage was produced using RMarkdown. Data is downloaded from the Census using R's tidycensus package. Block-group data in the racial demographics map as well as the shapefile come from NHGIS, cited below. Data will be updated periodically (potentially with additional visualizations), and with 2016-2020 data once the newest version of the American Community Survey is released. Updates are described at the bottom of the page.
+
+#### Organization of race/ethnicity data
+
+Race and ethnicity data are consolidated in the "Race and Ethnicity" tab, and repeat in each subject-area heading tab (e.g., race/ethnicity housing data can be found in the "Housing" sub-tab of the "Race and Ethnicity" heading-tab, as well as in the "Housing" heading-tab).
+
+#### The ACS vs. the decennial Census
+
+Decennial Census results for 2020 will be analyzed separately. This is because the 5-year ACS updates each year rather than every 10 years (allowing more regular update to this webpage), contains some different data than the decennial Census, reflects different data than the decennial Census (survey results from a 5-year period rather than just 2020), and is collected differently (e.g., using statistical sampling to generate estimates rather than trying to survey every household).
+
+#### Race in the ACS
+
+The ACS survey asks residents whether they are one or multiple of the following races: white, Black or African American, Asian, Native Hawaiian and Other Pacific Islander, and American Indian and Alaska Native. The Census also leaves a sixth option, "Some Other Race," which people can fill in on their own (e.g., the Census [reports](https://www.census.gov/library/stories/2021/08/improved-race-ethnicity-measures-reveal-united-states-population-much-more-multiracial.html) that many Hispanic or Latino respondents listed "their race as 'Mexican,' 'Hispanic,' 'Latin American,' [or] 'Puerto Rican').
+
+#### Households and families defined
+
+[The Census defines](https://www.census.gov/programs-surveys/cps/technical-documentation/subject-definitions.html#familyhousehold) a household as all people in a housing unit. A housing unit is a separate living quarters, meaning occupants have a dedicated space or structure for them. A single-family house is a housing unit, one apartment in an apartment building is a housing unit, and one room in a grouphouse is a housing unit. A householder is the person renting or owning a housing unit (in the case of a couple, it could be either of the two).
+
+#### Statistical significance and margins of error
+
+Text descriptions of the data generally focus on statistically significant differences at a minimum 90% significance level. For a difference to be statistically significant at a 90% level means that we would expect the difference to appear in the data due to randomness or sampling no more than 10% of the time.
+
+For a place as small as Takoma Park it can be difficult to assess whether differences in the data are 'real,' or due to chance or the particular sample of people that the Census surveyed. This is especially true for analyses involving smaller subgroups or deeper-breakdowns of the data. For example, Takoma Park has a very small population of Native Hawaiians and Pacific Islanders, and populations of most groups become small when you break out data by race, age, and sex. Many interactive graphs have hover text showing whether there are statistically significant differences between the selected group and other groups, the level of confidence in a given difference, and/or the margin of error of the estimate.
+
+For instance, in the plot below of internet access for residents 65 and over, hovering over Takoma Park's broadband internet results shows "Margin of error: 7.19%" and "Significant Differences: Overall, MC." 
+
+- **The significant differences** results means that we have at least 90% confidence that there are actual-differences--and not just observed differences--between broadband access for Takoma Park residents 65+ and broadband access for all residents in the city ("Overall"), and between broadband access for 65+ residents of Takoma Park and 65+ residents of Montgomery County ("MC"). We don't see "MD" appear in the list of significant differences because we cannot have confidence at a 90% significance level that Takoma Park's 65+ broadband-access rate of 75.97% is actually-different than Maryland's 65+ access rate of 77.12%.
+- **The margin of error** means that we are 90% confident that the actual level of broadband internet access of people 65 and over--not just the 'observed' estimate, which is what we see in the survey data--is between `r 75.97 - 7.19`% and `r 75.97 + 7.19`%. The margin of error suggests that Takoma Park's rate could be either higher or lower than Maryland's access rate due to randomness or sampling.
+
+#### Reproducability and other analyses
+
+Code used to produce this webpage and pre-process the data can be found on the [City's Github page](https://github.com/City-of-Takoma-Park/hced). Similar information can be found in the [City's interactive demographic map](https://takomaparkmd.gov/news/learn-about-your-neighborhood-with-interactive-maps/) and in the [City's Social Vulnerability Index maps](https://takomaparkmd.gov/government/housing-and-community-development/planning-and-community-development/data-driven-approach-to-disaster-pandemic-response/).
+
+### Updates and citations
+
+**List of updates:**
+
+- *11/18/2021:* Changed graph width options so resizes to screen and more mobile-friendly.
+- *11/17/2021:* Webpage public.
+- *9/15/2021:* Some language changes, esp. around statistical significance. Added disability by type graphs. Added poverty by sex graphs.
+- *9/8/2021:* Reformatted methodology. Moved map layers position.
+- *9/2/2021:* Uploaded webpage.
+
+*Steven Manson, Jonathan Schroeder, David Van Riper, Tracy Kugler, and Steven Ruggles. IPUMS National Historical Geographic Information System: Version 16.0 [dataset]. Minneapolis, MN: IPUMS. 2021. http://doi.org/10.18128/D050.V16.0*
+
+
