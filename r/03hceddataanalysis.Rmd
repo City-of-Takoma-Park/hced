@@ -6225,7 +6225,11 @@ plot_ly(tenure_income_median,
 
 **Housing data reveal differences in challenges experienced by renters and homeowners. `r pull_own_greater150`% of homeowners in Takoma Park have a household income above \$150,000, while only `r pull_rent_greater100`% of renters have a household income above \$100,000.** Conversely, `r pull_rent_below35k`% of renters have a household income below \$35,000, compared to `r pull_own_below35k`% of homeowners.
 
+
+
 ```{r renter_owner_income plot }
+
+#### CHANGE
 
 x_ax_rentown <- list(title = "Income",
                      categoryorder = "array",

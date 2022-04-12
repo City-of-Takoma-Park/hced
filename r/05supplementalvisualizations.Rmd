@@ -14,8 +14,6 @@ output:
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE, out.width = '100%')
 
-
-
 library(tidycensus)
 library(sf)
 library(leaflet)
@@ -571,7 +569,83 @@ fam_pov_race <- data_binder("family_poverty_race") %>%
 
 [The Census defines](https://www.census.gov/programs-surveys/cps/technical-documentation/subject-definitions.html#familyhousehold) a household as all people in a housing unit. A housing unit is a separate living quarters, meaning occupants have a dedicated space or structure for them. A single-family house is a housing unit, one apartment in an apartment building is a housing unit, and one room in a grouphouse is a housing unit. A householder is the person renting or owning a housing unit (in the case of a couple, it could be either of the two).
 
+#### Household size
 
+```{r read process nhgis household size}
+
+rename_frame <- data.frame(
+  code = c(paste0("alv1e00", 1:9), paste0("alv1e0", 10:16)),
+  val = c("Total households", "Total families", paste0(2:6, "-person family"), "7-or more person family", "Total nonfamilies", paste0(1:6, "-person nonfamily"), "7-or more person nonfamily")
+)
+
+
+housesize <- read.csv("./data/nhgis/householdsize/nhgis0032_csv/nhgis0032_ds244_20195_place.csv") %>%
+  rename_all(tolower) %>%
+  filter(grepl("Takoma Park", place)) 
+
+housecols <- grep("alv1e", colnames(housesize), value = T) %>%
+  grep("(alv1e00[1-2])|(alv1e009)", x = ., value = T, invert = T)
+
+housesize <- housesize %>%
+  select(place, alv1e001, alv1e002, alv1e009, housecols) %>%
+  pivot_longer(cols = housecols) %>%
+  left_join(rename_frame, by = c("name" = "code")) %>%
+  mutate(famtype = case_when(grepl("nonfamily", val) ~ "Nonfamily",
+                             grepl("family", val) ~ "Family"),
+         pct_households = pct_round(value, alv1e001),
+         pct_famtype = case_when(grepl("nonfamily", val) ~ pct_round(value, alv1e009),
+                                 T ~ pct_round(value, alv1e002)),
+         val = gsub(" nonfamily", "", val) %>%
+           gsub(" family", "", .)) %>%
+  rename(tothouseholds = alv1e001,
+         totfamilies = alv1e002,
+         totnonfamilies = alv1e009)
+
+openxlsx::write.xlsx(housesize, "./data/output_data/householdsize.xlsx", asTable = T)
+
+plot_ly(housesize,
+        x = ~ famtype,
+        y = ~ value,
+        color = ~ val,
+        legendgroup = ~ val,
+        text = ~ glue("Percent: {pct_famtype}%"),
+        textposition = "inside",
+        textfont = list(color = "black"),
+        type = "bar") %>%
+  layout(barmode = "stack",
+         yaxis = list(title = "Total households"),
+         xaxis = list(title = "Household type"),
+         title = "Takoma Park households by family size")
+
+housegrp <- housesize %>%
+  group_by(val) %>%
+  summarize(value = sum(value),
+            pct_households = sum(pct_households)) %>%
+  ungroup %>%
+  arrange(val) %>%
+  mutate(cumul_tot = cumsum(value),
+         cumul_pct = cumsum(pct_households))
+            
+openxlsx::write.xlsx(housegrp, "./data/output_data/householdsize_grouped.xlsx", asTable = T)
+
+
+plot_ly(housegrp,
+        x = ~ val,
+        y = ~ value,
+        color = ~ val,
+        legendgroup = ~ val,
+        text = ~ glue("Percent:
+                      {pct_households}%"),
+        textposition = "inside",
+        textfont = list(color = "black"),
+        type = "bar") %>%
+  layout(barmode = "stack",
+         yaxis = list(title = "Total households"),
+         xaxis = list(title = "Household type"),
+         title = "Takoma Park households by family size")
+
+
+```
 
 
 ### Foreign-born residency, birthplace, and English proficiency
@@ -603,6 +677,10 @@ fam_pov_race <- data_binder("family_poverty_race") %>%
 ### Income
 
 #### Table of contents
+
+#### Income-level by age
+
+
 
 
 #### Income-level by family type
