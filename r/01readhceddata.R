@@ -1,13 +1,72 @@
-# purpose - load in data for hced analysis
+# purpose - load in data for hced analysis using tidycensus
 
 library(tidycensus)
-library(dplyr)
 library(tidyverse)
-library(conflicted)
+# library(conflicted)
 
-conflict_prefer("filter", "dplyr")
+# conflict_prefer("filter", "dplyr")
 
-variables <- tidycensus::load_variables(2019, "acs5", cache = TRUE)
+variables_2020 <- tidycensus::load_variables(2020, "acs5", cache = TRUE)
+
+# variables on age
+age_vars <- variables_2020 %>%
+  pull(concept) %>%
+  grep("( age)|(^age)", ., ignore.case = T, value = T) %>%
+  unique
+
+medage_2020 <- (age_vars %>%
+  grep("MEDIAN", ., value = T))[1]
+
+vars_medage_2020 <- variables_2020 %>%
+  dplyr::filter(concept == medage_2020) %>%
+  pull(name)
+
+variables <- variables_2020
+# variables <- tidycensus::load_variables(2019, "acs5", cache = TRUE)
+
+age_vars <- variables %>%
+  pull(concept) %>%
+  grep("( age)|(^age)", ., ignore.case = T, value = T) %>%
+  unique
+
+age_inc <- grep("income", age_vars, ignore.case = T, value = T)
+
+vars_age_inc <- variables %>%
+  filter(grepl("AGE OF HOUSEHOLDER BY HOUSEHOLD INCOME IN THE PAST 12 MONTHS", x = concept) & grepl("DOLLARS\\)$", concept)) %>%
+  pull(name)
+
+vars_age_owner_costburden <- variables %>%
+  filter(grepl("AGE OF HOUSEHOLDER BY SELECTED MONTHLY OWNER COSTS AS A PERCENTAGE OF HOUSEHOLD INCOME IN THE PAST 12 MONTHS", concept)) %>%
+  pull(name)
+
+vars_age_renter_costburden <- variables %>%
+  filter(grepl("AGE OF HOUSEHOLDER BY GROSS RENT AS A PERCENTAGE OF HOUSEHOLD INCOME IN THE PAST 12 MONTHS", concept)) %>%
+  pull(name)
+
+age_tenure <- grep("(tenure)|(owner)|(rent)", age_vars, ignore.case = T, value = T)
+
+vars_age_tenure <- variables %>%
+  filter(grepl("TENURE BY AGE OF HOUSEHOLDER", concept)) %>%
+  pull(name)
+
+vars_age_tenure_houstype <- variables %>%
+  filter(grepl("TENURE BY HOUSEHOLD TYPE \\(INCLUDING LIVING ALONE\\) AND AGE OF HOUSEHOLDER", concept)) %>%
+  pull(name)
+
+# veteran variables
+concept_vet <- variables %>%
+  filter(grepl("veteran", label) | grepl("veteran", concept)) %>%
+  pull(concept) %>%
+  unique()
+    
+vars_veteran_age <- variables %>%
+  filter(grepl("SEX BY AGE BY VETERAN STATUS FOR THE CIVILIAN POPULATION 18 YEARS AND OVER$", concept)) %>%
+  pull(name)
+
+vars_veteran_employment <- variables %>%
+  filter(grepl("AGE BY VETERAN STATUS BY EMPLOYMENT STATUS FOR THE CIVILIAN POPULATION 18 TO 64 YEARS", concept)) %>%
+  pull(name)
+
 
 variables_2018 <- tidycensus::load_variables(2018, "acs5", cache = TRUE)
 
@@ -487,7 +546,13 @@ dfs_list <- list("Unemployment by race" = vars_unemploy_race,
                  "Households by family v nonfamily" = vars_familynonfamilyhous,
                  "Households by family type and age and poverty" = vars_houstype_poverty,
                  "Family type by income to poverty ratio" = vars_fantype_povratio,
-                 "Family type by income-level" = vars_famtype_income
+                 "Family type by income-level" = vars_famtype_income,
+                 "Age by income" = vars_age_inc,
+                 "Owner cost burden by age" = vars_age_owner_costburden,
+                 "Renter cost burden by age" = vars_age_renter_costburden,
+                 "Age by tenure by household type" = vars_age_tenure_houstype,
+                 "Median age by sex" = vars_medage_2020,
+                 "Veteran status by age and sex" = vars_veteran_age
                  )
 
 # dfs_list_vector <- unlist(dfs_list, use.names = FALSE, recursive = TRUE)
@@ -498,7 +563,7 @@ dfs_list <- list("Unemployment by race" = vars_unemploy_race,
 tp_load <- function(geog, vars_load, year = 2019){
   print(vars_load)
   
-  tp_data <- get_acs(geography = geog, 
+  tp_data <- tidycensus::get_acs(geography = geog, 
                      year = year, 
                      moelevel = 90,
                      cache_table = TRUE, 
@@ -537,12 +602,23 @@ multi_year_process <- function(dfs_arg = dfs_list,
   return(output_dir)
 }
 
-multi_year_process(dfs_list[52:53], place_type = "place", year = 2019)
+multi_year_process(dfs_list[59:59], place_type = "place", year = 2019)
 
-multi_year_process(dfs_list[52:53], place_type = "state", year = 2019)
+multi_year_process(dfs_list[59:59], place_type = "state", year = 2019)
 
 
-multi_year_process(dfs_list[52:53], place_type = "county", year = 2019)
+multi_year_process(dfs_list[59:59], place_type = "county", year = 2019)
+
+
+
+# 2016-2020 acs
+multi_year_process(dfs_list[59:59], place_type = "place", year = 2020)
+
+multi_year_process(dfs_list[59:59], place_type = "state", year = 2020)
+
+multi_year_process(dfs_list[59:59], place_type = "county", year = 2020)
+
+
 
 # 
 # walk2(dfs_list[25:25], names(dfs_list)[25:25], ~ {
