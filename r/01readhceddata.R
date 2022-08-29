@@ -2,9 +2,9 @@
 
 library(tidycensus)
 library(tidyverse)
-# library(conflicted)
+library(conflicted)
 
-# conflict_prefer("filter", "dplyr")
+conflict_prefer("filter", "dplyr")
 
 variables_2020 <- tidycensus::load_variables(2020, "acs5", cache = TRUE)
 
@@ -18,7 +18,8 @@ medage_2020 <- (age_vars %>%
   grep("MEDIAN", ., value = T))[1]
 
 vars_medage_2020 <- variables_2020 %>%
-  dplyr::filter(concept == medage_2020) %>%
+  # dplyr::filter(concept == medage_2020) %>%
+  dplyr::filter(grepl("^B01002_", name)) %>%
   pull(name)
 
 variables <- variables_2020
@@ -32,25 +33,30 @@ age_vars <- variables %>%
 age_inc <- grep("income", age_vars, ignore.case = T, value = T)
 
 vars_age_inc <- variables %>%
-  filter(grepl("AGE OF HOUSEHOLDER BY HOUSEHOLD INCOME IN THE PAST 12 MONTHS", x = concept) & grepl("DOLLARS\\)$", concept)) %>%
+  # filter(grepl("AGE OF HOUSEHOLDER BY HOUSEHOLD INCOME IN THE PAST 12 MONTHS", x = concept) & grepl("DOLLARS\\)$", concept)) %>%
+  filter(grepl("^B19037_", name)) %>%
   pull(name)
 
 vars_age_owner_costburden <- variables %>%
-  filter(grepl("AGE OF HOUSEHOLDER BY SELECTED MONTHLY OWNER COSTS AS A PERCENTAGE OF HOUSEHOLD INCOME IN THE PAST 12 MONTHS", concept)) %>%
+  # filter(grepl("AGE OF HOUSEHOLDER BY SELECTED MONTHLY OWNER COSTS AS A PERCENTAGE OF HOUSEHOLD INCOME IN THE PAST 12 MONTHS", concept)) %>%
+  filter(grepl("^B25093_", name)) %>%
   pull(name)
 
 vars_age_renter_costburden <- variables %>%
-  filter(grepl("AGE OF HOUSEHOLDER BY GROSS RENT AS A PERCENTAGE OF HOUSEHOLD INCOME IN THE PAST 12 MONTHS", concept)) %>%
+  # filter(grepl("AGE OF HOUSEHOLDER BY GROSS RENT AS A PERCENTAGE OF HOUSEHOLD INCOME IN THE PAST 12 MONTHS", concept)) %>%
+  filter(grepl("^B25072_", name)) %>%
   pull(name)
 
 age_tenure <- grep("(tenure)|(owner)|(rent)", age_vars, ignore.case = T, value = T)
 
 vars_age_tenure <- variables %>%
-  filter(grepl("TENURE BY AGE OF HOUSEHOLDER", concept)) %>%
+  # filter(grepl("TENURE BY AGE OF HOUSEHOLDER", concept)) %>%
+  filter(grepl("^B25007_", name)) %>%
   pull(name)
 
 vars_age_tenure_houstype <- variables %>%
-  filter(grepl("TENURE BY HOUSEHOLD TYPE \\(INCLUDING LIVING ALONE\\) AND AGE OF HOUSEHOLDER", concept)) %>%
+  # filter(grepl("TENURE BY HOUSEHOLD TYPE \\(INCLUDING LIVING ALONE\\) AND AGE OF HOUSEHOLDER", concept)) %>%
+  filter(grepl("^B25011_", name)) %>%
   pull(name)
 
 # veteran variables
@@ -60,15 +66,16 @@ concept_vet <- variables %>%
   unique()
     
 vars_veteran_age <- variables %>%
-  filter(grepl("SEX BY AGE BY VETERAN STATUS FOR THE CIVILIAN POPULATION 18 YEARS AND OVER$", concept)) %>%
+  # filter(grepl("SEX BY AGE BY VETERAN STATUS FOR THE CIVILIAN POPULATION 18 YEARS AND OVER$", concept)) %>%
+  filter(grepl("^B21001_", name)) %>%
   pull(name)
 
 vars_veteran_employment <- variables %>%
-  filter(grepl("AGE BY VETERAN STATUS BY EMPLOYMENT STATUS FOR THE CIVILIAN POPULATION 18 TO 64 YEARS", concept)) %>%
+  # filter(grepl("AGE BY VETERAN STATUS BY EMPLOYMENT STATUS FOR THE CIVILIAN POPULATION 18 TO 64 YEARS", concept)) %>%
+  filter(grepl("^B21005", name)) %>%
   pull(name)
 
-
-variables_2018 <- tidycensus::load_variables(2018, "acs5", cache = TRUE)
+# variables_2018 <- tidycensus::load_variables(2018, "acs5", cache = TRUE)
 
 variables_unemploy <- variables %>%
   filter(grepl("unemploy", label, ignore.case = TRUE)) 
@@ -146,6 +153,7 @@ vars_lang_home <- c("B06007_001", "B06007_002", "B06007_003", "B06007_006")
 
 ## educational attainment overall
 educ_vars <- paste0("B06009_00", 1:6)
+
 variables %>%
   filter(name %in% educ_vars)
   
@@ -161,7 +169,8 @@ educ_race_concept <- educ_race_concept[-c(1, 2)]
 
 # pull codes corresponding to race/eduational attainment
 vars_educ_race <- variables %>%
-  filter(concept %in% educ_race_concept) %>%
+  # filter(concept %in% educ_race_concept) %>%
+  filter(grepl("C15002[A-Z]_", name)) %>%
   pull(name)
 
 #unemployment by race
@@ -171,7 +180,8 @@ unemploy_concept <- variables %>%
   unique()
 
 vars_unemploy_race <- variables %>%
-  filter(concept %in% unemploy_concept) %>%
+  # filter(concept %in% unemploy_concept) %>%
+  filter(grepl("^(B23001_)|(C23002[A-Z])", name)) %>%
   pull(name)
 
 # homeownership by race
@@ -183,7 +193,8 @@ home_own_concept <- variables %>%
 home_own_concept <- home_own_concept[1:10]
 
 vars_home_own_race <- variables %>%
-  filter(concept %in% home_own_concept) %>%
+  # filter(concept %in% home_own_concept) %>%
+  filter(grepl("^B25003", name)) %>%
   pull(name)
 
 # poverty level
@@ -202,9 +213,9 @@ vars_poverty_sex <- variables %>%
   pull(name)
 
 vars_poverty_sex_race <- variables %>%
-  filter(grepl("POVERTY STATUS IN THE PAST 12 MONTHS BY SEX BY AGE \\(", concept)) %>%
+  # filter(grepl("POVERTY STATUS IN THE PAST 12 MONTHS BY SEX BY AGE \\(", concept)) %>%
+  filter(grepl("^B17001[A-Z]_", name)) %>%
   pull(name)
-
 
 
 vars_poverty_detail <- variables %>%
@@ -233,7 +244,9 @@ variables %>%
   pull(concept) %>%
   unique
 
-vars_race_income <- variables %>%
+variables_2019 <- tidycensus::load_variables(2019, "acs5", cache = TRUE)
+
+vars_race_income <- variables_2019 %>%
   filter(grepl("^HOUSEHOLD INCOME IN THE PAST 12 MONTHS \\(IN 2019 INFLATION-ADJUSTED DOLLARS\\)",
                concept))
 
@@ -241,14 +254,15 @@ vars_race_income %>%
   pull(concept) %>%
   unique()
 
-vars_race_income <- vars_race_income %>%
-  filter(!grepl("(BY VALUE$)|(BY GROSS RENT)", concept) & !grepl("\\(IN 2019 INFLATION-ADJUSTED DOLLARS\\)$", concept))
+vars_race_income <- variables %>%
+  # filter(!grepl("(BY VALUE$)|(BY GROSS RENT)", concept) & !grepl("\\(IN 2019 INFLATION-ADJUSTED DOLLARS\\)$", concept))
+  filter(grepl("^B19001[A-Z]", name))
 
 vars_race_income <- vars_race_income %>%
   pull(name)
 
 # median income by race
-vars_race_median_income <- variables %>%
+vars_race_median_income <- variables_2019 %>%
   filter(grepl("^MEDIAN HOUSEHOLD INCOME IN THE PAST 12 MONTHS \\(IN 2019 INFLATION-ADJUSTED DOLLARS\\)",
                concept))
 
@@ -257,7 +271,8 @@ unique(vars_race_median_income$concept)
 vars_race_median_income <- vars_race_median_income %>%
   filter(!grepl("DOLLARS\\) BY ", concept))
 
-vars_race_median_income <- vars_race_median_income %>%
+vars_race_median_income <- variables %>%
+  filter(grepl("^B19013", name)) %>%
   pull(name)
 
 # race of population
@@ -266,15 +281,15 @@ vars_race_pop <- c("B02001_001", "B02001_002", "B02001_003", "B02001_004", "B020
 # hispanic/latin
 vars_hisp_lat <- c("B03002_001", "B03002_012")
 
-foreign_born_birth <- foreign_born_birth %>%
-  separate_label(c(NA, NA, "continent", "americas")) %>%
-  mutate(continent = ifelse(!is.na(americas), americas, continent)) %>%
-  select(-americas) %>%
-  total_val() %>%
-  total_col_add(total_cols = list("continent_overall" = "continent"))
-
-test_funct(foreign_born_birth, "continent_overall", "continent_overall_moe", component_moe = "moe", "pct_tp") %>%
-  as.data.frame()
+# foreign_born_birth <- foreign_born_birth %>%
+#   separate_label(c(NA, NA, "continent", "americas")) %>%
+#   mutate(continent = ifelse(!is.na(americas), americas, continent)) %>%
+#   select(-americas) %>%
+#   total_val() %>%
+#   total_col_add(total_cols = list("continent_overall" = "continent"))
+# 
+# test_funct(foreign_born_birth, "continent_overall", "continent_overall_moe", component_moe = "moe", "pct_tp") %>%
+#   as.data.frame()
 
 # vars race tenure
 vars_race_tenure_white <- c("B25003A_001", "B25003A_002", "B25003A_003")
@@ -362,9 +377,13 @@ concept_computer <- variables %>%
 df_computer <- variables %>%
   filter(grepl("PRESENCE OF A COMPUTER AND TYPE OF INTERNET SUBSCRIPTION IN HOUSEHOLD", ignore.case = T, concept))
 
-vars_computer <- df_computer %>%
-  filter(!grepl("B28008", name)) %>%
+vars_computer <- variables %>%
+  filter(grepl("^(B28003_)|(B28009[A-Z])", name)) %>%
   pull(name)
+
+# vars_computer <- df_computer %>%
+#   filter(!grepl("B28008", name)) %>%
+#   pull(name)
 
 vars_disabilty <- variables %>%
   filter(grepl("B18101_", name)) %>%
@@ -410,7 +429,8 @@ vars_asian_country <- variables %>%
   pull(name)
 
 vars_tenure_age <- variables %>%
-  filter(grepl("TENURE BY AGE OF HOUSEHOLDER$", concept)) %>%
+  filter(grepl("B25007_", name)) %>%
+  # filter(grepl("TENURE BY AGE OF HOUSEHOLDER$", concept)) %>%
   pull(name)
 
 #  [7] "MEANS OF TRANSPORTATION TO WORK BY WORKERS' EARNINGS IN THE PAST 12 MONTHS (IN 2019 INFLATION-ADJUSTED DOLLARS)"                                                                                            
@@ -429,7 +449,8 @@ vars_disab_type <- variables %>%
   pull(name)
 
 vars_family <- variables %>%
-  filter(grepl("^HOUSEHOLDS BY TYPE", concept)) %>%
+  filter(grepl("B11012_", name)) %>%
+  # filter(grepl("^HOUSEHOLDS BY TYPE", concept)) %>%
   pull(name)
 
 concepts_child <- variables %>%
@@ -438,39 +459,48 @@ concepts_child <- variables %>%
   unique()
 
 vars_family_poverty_overall <- variables %>%
-  filter(grepl("POVERTY STATUS IN THE PAST 12 MONTHS OF FAMILIES BY FAMILY TYPE BY PRESENCE OF RELATED CHILDREN UNDER 18 YEARS BY AGE OF RELATED CHILDREN$", concept)) %>%
+  filter(grepl("B17010_", name)) %>%
+  # filter(grepl("POVERTY STATUS IN THE PAST 12 MONTHS OF FAMILIES BY FAMILY TYPE BY PRESENCE OF RELATED CHILDREN UNDER 18 YEARS BY AGE OF RELATED CHILDREN$", concept)) %>%
   pull(name)
 
 vars_family_poverty_race <- variables %>%
-  filter(grepl("POVERTY STATUS IN THE PAST 12 MONTHS OF FAMILIES BY FAMILY TYPE BY PRESENCE OF RELATED CHILDREN UNDER 18 YEARS BY AGE OF RELATED CHILDREN \\(", concept)) %>%
+  filter(grepl("B17010[A-Z]", name)) %>%
+  # filter(grepl("POVERTY STATUS IN THE PAST 12 MONTHS OF FAMILIES BY FAMILY TYPE BY PRESENCE OF RELATED CHILDREN UNDER 18 YEARS BY AGE OF RELATED CHILDREN \\(", concept)) %>%
   pull(name)
 
 vars_family_poverty_numchildren <- variables %>%
-  filter(grepl("POVERTY STATUS IN THE PAST 12 MONTHS OF FAMILIES BY HOUSEHOLD TYPE BY NUMBER OF RELATED CHILDREN UNDER 18 YEARS", concept))%>%
+  filter(grepl("B17012_", name)) %>%
+  # filter(grepl("POVERTY STATUS IN THE PAST 12 MONTHS OF FAMILIES BY HOUSEHOLD TYPE BY NUMBER OF RELATED CHILDREN UNDER 18 YEARS", concept))%>%
   pull(name)
 
 vars_family_incomepoverty <- variables %>%
-  filter(grepl("RATIO OF INCOME TO POVERTY LEVEL IN THE PAST 12 MONTHS OF FAMILIES BY FAMILY TYPE BY PRESENCE OF RELATED CHILDREN UNDER 18 YEARS BY AGE OF RELATED CHILDREN", concept)) %>%
+  filter(grepl("^B17022_", name)) %>%
+  # filter(grepl("RATIO OF INCOME TO POVERTY LEVEL IN THE PAST 12 MONTHS OF FAMILIES BY FAMILY TYPE BY PRESENCE OF RELATED CHILDREN UNDER 18 YEARS BY AGE OF RELATED CHILDREN", concept)) %>%
   pull(name)
 
 vars_family_income <- variables %>%
-  filter(grepl("MEDIAN FAMILY INCOME IN THE PAST 12 MONTHS \\(IN 2019 INFLATION-ADJUSTED DOLLARS\\) BY PRESENCE OF OWN CHILDREN UNDER 18 YEARS", concept)) %>%
+  filter(grepl("B19125_", name)) %>%
+  # filter(grepl("MEDIAN FAMILY INCOME IN THE PAST 12 MONTHS \\(IN 2019 INFLATION-ADJUSTED DOLLARS\\) BY PRESENCE OF OWN CHILDREN UNDER 18 YEARS", concept)) %>%
   pull(name)
 
 vars_family_income_familytype <- variables %>%
-  filter(grepl("MEDIAN FAMILY INCOME IN THE PAST 12 MONTHS \\(IN 2019 INFLATION-ADJUSTED DOLLARS\\) BY FAMILY TYPE BY PRESENCE OF OWN CHILDREN UNDER 18 YEARS", concept)) %>%
+  filter(grepl("B19126_", name)) %>%
+  # filter(grepl("MEDIAN FAMILY INCOME IN THE PAST 12 MONTHS \\(IN 2019 INFLATION-ADJUSTED DOLLARS\\) BY FAMILY TYPE BY PRESENCE OF OWN CHILDREN UNDER 18 YEARS", concept)) %>%
   pull(name)
 
 vars_family_publicassist <- variables %>%
-  filter(grepl("RECEIPT OF FOOD STAMPS/SNAP IN THE PAST 12 MONTHS BY PRESENCE OF CHILDREN UNDER 18 YEARS BY HOUSEHOLD TYPE FOR HOUSEHOLDS", concept)) %>%
+  filter(grepl("B22002_", name)) %>%
+  # filter(grepl("RECEIPT OF FOOD STAMPS/SNAP IN THE PAST 12 MONTHS BY PRESENCE OF CHILDREN UNDER 18 YEARS BY HOUSEHOLD TYPE FOR HOUSEHOLDS", concept)) %>%
   pull(name)
 
 vars_family_employstatus <- variables %>%
-  filter(grepl("PRESENCE OF OWN CHILDREN UNDER 18 YEARS BY FAMILY TYPE BY EMPLOYMENT STATUS", concept)) %>%
+  filter(grepl("B23007_", name)) %>%
+  # filter(grepl("PRESENCE OF OWN CHILDREN UNDER 18 YEARS BY FAMILY TYPE BY EMPLOYMENT STATUS", concept)) %>%
   pull(name)
 
 vars_family_tenure <- variables %>%
-  filter(grepl("TENURE BY FAMILIES AND PRESENCE OF OWN CHILDREN", concept)) %>%
+  filter(grepl("B25012_", name)) %>%
+  # filter(grepl("TENURE BY FAMILIES AND PRESENCE OF OWN CHILDREN", concept)) %>%
   pull(name)
 
 vars_familynonfamilyhous <- variables %>%
@@ -482,7 +512,8 @@ vars_familynonfamily_65plus <- variables %>%
   pull(name)
 
 vars_houstype_poverty <- variables %>%
-  filter(grepl("POVERTY STATUS IN THE PAST 12 MONTHS BY HOUSEHOLD TYPE BY AGE OF HOUSEHOLDER", concept)) %>%
+  filter(grepl("B17017_", name)) %>%
+  # filter(grepl("POVERTY STATUS IN THE PAST 12 MONTHS BY HOUSEHOLD TYPE BY AGE OF HOUSEHOLDER", concept)) %>%
   pull(name)
 
 vars_fantype_povratio <- variables %>%
@@ -560,7 +591,7 @@ dfs_list <- list("Unemployment by race" = vars_unemploy_race,
 # vars_load <- map(grep("vars_", ls(), value = TRUE), ~ eval(sym(.x))) %>%
 #   unlist()
 
-tp_load <- function(geog, vars_load, year = 2019){
+tp_load <- function(geog, vars_load, year = 2020){
   print(vars_load)
   
   tp_data <- tidycensus::get_acs(geography = geog, 
@@ -582,8 +613,8 @@ multi_year_process <- function(dfs_arg = dfs_list,
                                year){
   
   place_prefix <- case_when(place_type == "place" ~ "all_municip_acs5_",
-                            place_type == "county" ~ "montcounty2019_acs5_",
-                            place_type == "state" ~ "maryland2019_acs5_")
+                            place_type == "county" ~ "montcounty_acs5_",
+                            place_type == "state" ~ "maryland_acs5_")
   
   
   output_dir <- paste0("data/acs5", year, "/")
@@ -612,11 +643,11 @@ multi_year_process(dfs_list[59:59], place_type = "county", year = 2019)
 
 
 # 2016-2020 acs
-multi_year_process(dfs_list[59:59], place_type = "place", year = 2020)
+multi_year_process(dfs_list[grep("Median age by sex", names(dfs_list)):length(dfs_list)], place_type = "place", year = 2020)
 
-multi_year_process(dfs_list[59:59], place_type = "state", year = 2020)
+multi_year_process(dfs_list, place_type = "state", year = 2020)
 
-multi_year_process(dfs_list[59:59], place_type = "county", year = 2020)
+multi_year_process(dfs_list, place_type = "county", year = 2020)
 
 
 

@@ -34,12 +34,19 @@ library(tpfuncts)
 library(leafletwrappers)
 library(plotlywrappers)
 
+
 # race_formatter <- function(df, race_col){
 #   df %>%
 #     mutate(race = acsprocess::race_recode({{ race_col }}))
 # }
 
 pal_race <- brewer.pal(10, "Accent")[c(-4, -5)]
+
+
+data_binder <- function(file_root){
+  # browser()
+  acsprocess::data_binder(file_root = file_root, dir_root = "./data/output_data/acs5_2020/tpspec/")
+}
 
 
 # function to generate graphs of a specific race by location
@@ -89,20 +96,60 @@ race_breakout_gen <- function(df,
   # showgrid = FALSE))
 }
 
+income_recode <- function(df, income_col, new_income = "income_recode", rent_own = F){
+
+  change_income <- function(string){
+    paste0(
+      # "&#36",
+      gsub("(,000)|(,999)", "", string) %>%
+        # gsub("\\$", "", ., ) %>%
+        gsub(" to \\$", "k-", x =  .) %>%
+        gsub("Less than ", "< ", x =  .) %>%
+        ifelse(grepl(" or more", ., ignore.case = T), paste0("> ", . ), .) %>%
+        gsub(" or more", "", x = .) %>%
+        gsub(":", "", .), "k")
+  }
+
+  df <- df %>%
+    dplyr::mutate(!!dplyr::sym(new_income) := change_income({{income_col}}))
+
+  factor_vector <- dplyr::pull(df, !!dplyr::sym(new_income)) %>% unique
+
+  factor_vector_big <- grep(">", factor_vector, value = T)
+  factor_vector_small <- grep("<", factor_vector, value = T)
+
+  factor_vector <- c(factor_vector_small,
+                     factor_vector[!factor_vector %in% c(factor_vector_small, factor_vector_big)],
+                     factor_vector_big)
+
+  df <- df %>%
+    mutate(!!dplyr::sym(new_income) := factor(!!dplyr::sym(new_income), factor_vector, factor_vector))
+
+  if (rent_own){
+
+    rent_own_replacer <- function(string){
+      recode(string, "100k-149k" = "Owner: 100k-150k \n Renter: > 100k",
+             "> 100k" = "Owner: 100k-150k \n Renter: > 100k")
+    }
+
+    df <- df %>%
+      dplyr::mutate(!!dplyr::sym(new_income) := rent_own_replacer(!!dplyr::sym(new_income)))
+  }
+
+  df
+
+}
+
+
 ```
 
 # ![takoma park logo](images/logo.png){height=80px}  Takoma Park Data Explorer {- .tabset}
 
-***About***: This webpage allows Takoma Park residents and staff to learn more about their city through data. Data comes from the Census's [2015-2019 American Community Survey](https://www.census.gov/programs-surveys/acs). Each heading tab opens to a "Summary" sub-tab; click on other sub-tabs to see data-visualizations and detailed explanations. All graphics are interactive; you can click and double-click on legend items to hide or show them, and mousing over graphics will show data-values. The "Methodology" tab describes data sources and statistical significance. Code used to produce this webpage can be found on the [City's Github page](https://github.com/City-of-Takoma-Park/hced). Similar web-maps can be found in the [City's interactive demographic map](https://takomaparkmd.gov/news/learn-about-your-neighborhood-with-interactive-maps/) and in the [City's Social Vulnerability Index maps](https://takomaparkmd.gov/government/housing-and-community-development/planning-and-community-development/data-driven-approach-to-disaster-pandemic-response/).
+***About***: This webpage allows Takoma Park residents and staff to learn more about their city through data. Data comes from the Census's [2016-2020 American Community Survey](https://www.census.gov/programs-surveys/acs). Each heading tab opens to a "Summary" sub-tab; click on other sub-tabs to see data-visualizations and detailed explanations. All graphics are interactive; you can click and double-click on legend items to hide or show them, and mousing over graphics will show data-values. The "Methodology" tab describes data sources and statistical significance. Code used to produce this webpage can be found on the [City's Github page](https://github.com/City-of-Takoma-Park/hced). Similar web-maps can be found in the [City's interactive demographic map](https://takomaparkmd.gov/news/learn-about-your-neighborhood-with-interactive-maps/) and in the [City's Social Vulnerability Index maps](https://takomaparkmd.gov/government/housing-and-community-development/planning-and-community-development/data-driven-approach-to-disaster-pandemic-response/).
 
-Please send any questions, comments, or feedback to Public Administration Specialist Dan Powers at danielp@takomaparkmd.gov.
+Please send any questions, comments, or feedback to Senior Policy and Data Analyst Dan Powers at danielp@takomaparkmd.gov.
 
 ```{r demographics race, echo=FALSE}
-
-data_binder <- function(file_root){
-  # browser()
-  acsprocess::data_binder(file_root = file_root, dir_root = "./data/output_data/acs5_2019/tp_spec/")
-}
 
 race_ethn <- data_binder(file_root = "race_ethn_processed") %>%
   name_num_formatter()
@@ -303,6 +350,7 @@ foreign_birth <- data_binder("foreign_born_birth_processed") %>%
   mutate(continent = gsub(":", "", continent),
          continent_pct = round(continent_pct, 2))
 
+
 pull_foreign_birth <- pull_creator(foreign_birth, c("name", "continent"))
 
 pull_tp_africa <- pull_foreign_birth(c("Takoma", "Africa"), "continent_pct") %>%
@@ -485,11 +533,19 @@ pull_female_3039_pctpop <- pull_age_sex(c("female", "30-39"), "pct_age_pop")
 
 pull_female_3039_tot <- pull_age_sex(c("female", "30-39"), "age_grp_est")
 
+pull_female_4049_tot <- pull_age_sex(c("female", "40-49"), "age_grp_est")
 
 
 pull_male_3039_pct <- pull_age_sex(c("^male", "30-39"), "pct_age")
 
 pull_male_3039_tot <- pull_age_sex(c("^male", "30-39"), "age_grp_est")
+
+pull_female_4049_pct <- pull_age_sex(c("female", "40-49"), "pct_age")
+
+
+pull_male_4049_pct <- pull_age_sex(c("^male", "40-49"), "pct_age")
+
+pull_male_4049_tot <- pull_age_sex(c("^male", "40-49"), "age_grp_est")
 
 
 pull_female_4049_pct <- pull_age_sex(c("female", "40-49"), "pct_age")
@@ -517,7 +573,10 @@ pull_female_09_tot <- pull_age_sex(c("^female", "0-9"), "age_grp_est")
 
 pull_diff_09_tot <- (pull_male_09_tot - pull_female_09_tot) %>% commafy
 
-pull_diff_3039_tot <- (pull_female_3039_tot - pull_male_3039_tot) %>% commafy
+pull_diff_3039_tot <- (pull_female_3039_tot - pull_male_3039_tot)
+
+pull_diff_4049_tot <- (pull_female_4049_tot - pull_male_4049_tot)
+
 
 
 ```
@@ -769,6 +828,11 @@ pull_mc_married_child_pct <- pull_family_housppl(c("Montgomery", "Married", "chi
 pull_tp_male_alone_pct <- pull_family_housppl(c("Takoma", "^male", "alone"))
 pull_md_male_alone_pct <- pull_family_housppl(c("Maryland", "^male", "alone"))
 pull_mc_male_alone_pct <- pull_family_housppl(c("Montgomery", "^male", "alone"))
+
+pull_tp_female_rel_pct <- pull_family_housppl(c("Takoma", "female", "relatives"))
+pull_md_female_rel_pct <- pull_family_housppl(c("Maryland", "female", "relatives"))
+pull_mc_female_rel_pct <- pull_family_housppl(c("Montgomery", "female", "relatives"))
+
 
 pull_tp_cohab_child_pct <- pull_family_housppl(c("Takoma", "cohab", "children"))
 pull_tp_female_child_pct <- pull_family_housppl(c("Takoma", "female", "children"))
@@ -1104,6 +1168,11 @@ pull_ssa_pct <- pull_ancestry_overall("sub-Saharan", "pct_ancestry")
 
 pull_german <- pull_ancestry_overall("German", "estimate")
 
+# scotch-iish need be  excluded
+pull_irish <- pull_ancestry_overall("^irish", "estimate")
+pull_irish_pct <- pull_ancestry_overall("^irish", "pct_ancestry")
+
+
 pull_german_pct <- pull_ancestry_overall("German", "pct_ancestry")
 
 pull_english <- pull_ancestry_overall("english", "estimate")
@@ -1137,6 +1206,11 @@ pull_jamaica_pct <- pull_ancestry_sub("jamaica", "pct_country")
 
 
 pull_jordan_tot <- pull_ancestry_sub("Jordanian", "estimate")
+
+
+
+text_ancestry <- glue("**The Census reports {pull_num_ancestrygrps} ancestry groups in Takoma Park with at least 50 people, and no ancestry group represents more than {pull_ssa_pct}% of the population.** The largest reported group in Takoma Park by the Census's ancestry-categories are sub-Saharan African at { pull_ssa %>% commafy} (representing {pull_ssa_pct}% of residents), followed by Irish at {pull_irish %>% commafy} residents, German at {pull_german %>% commafy} residents, English at {pull_english %>% commafy} residents, and West Indian at {pull_westindian %>% commafy} residents. Due to the small numbers involved and high margin of error, caution should be taken in reading too much into exact estimates.")
+
 
 ```
 
@@ -1308,7 +1382,7 @@ pull_tp_noint_tot <- pull_comp(c("Takoma", "No internet"), "estimate")
 
 pull_tp_nocomp <- pull_comp(c("Takoma", "No computer"), "pct_comp_int")
 
-pull_mont_nocomp <- pull_comp(c("Montgome", "No computer"), "pct_comp_int")
+pull_md_nocomp <- pull_comp(c("^Maryland", "No computer"), "pct_comp_int")
 
 pull_mont_broadband <- pull_comp(c("Montgome", "Broadband"), "pct_comp_int")
 
@@ -1410,6 +1484,10 @@ educ_hisp <- educ_race_data_processed %>%
 
 educ_other <- educ_race_data_processed %>%
   filter(grepl("Other", race))
+
+educ_asian <- educ_race_data_processed %>%
+  filter(grepl("Asian", race))
+
 
 tp_educ_race_data <- educ_race_data_processed %>%
   filter(grepl("Takoma", location) & (race_total > 30 | race == "Overall")) %>%
@@ -1988,9 +2066,10 @@ sub_race_compare_educ <- subplot(race_breakout_gen(educ_black, "Black",  TRUE),
                                  race_breakout_gen(educ_white, "White"),
                                  race_breakout_gen(educ_hisp, "Hispanic"),
                                  race_breakout_gen(educ_other, "Other"), 
+                                 race_breakout_gen(educ_asian, "Asian"), 
                                  shareX = TRUE, 
                                  shareY = TRUE,
-                                 nrows = 2) %>%
+                                 nrows = 3) %>%
   layout(title = "Educational attainment by race and place",
          yaxis = list(title = "Cumulative percent"))
 
@@ -2122,15 +2201,18 @@ pull_black_nohealth_md <- pull_race_noinsur(c("Maryland", "black"), "pct_health"
 
 pull_other_nohealth_mont <- pull_race_noinsur(c("Mont", "other"), "pct_health")
 
+pull_other_nohealth_md <- pull_race_noinsur(c("Maryland", "other"), "pct_health")
+
+
 text_health_race_noinsur_summary <- glue("**Residents with a race of 'other,' Black residents, and Hispanic residents have less access to health insurance than white residents and residents overall.** Only {pull_white_nohealth}% of white residents do not have any insurance, compared to {pull_other_nohealth}% of residents with a race of 'other', {pull_hisp_nohealth}% of Hispanic residents, and {pull_black_nohealth}% of Black residents. Access to insurance for Black and 'other' residents fall below residents of the same race in Montgomery County.")
 
 text_health_race_noinsur <- glue("**Statistically-significant racial disparities show up in access to health insurance between white residents and other residents, and exceed those in Maryland and Montgomery County:** 
 
 - Residents with a race listed as 'other' in the ACS lack health insurance at the highest rates of any race/ethnicity; {pull_other_nohealth}% of these residents do not have insurance ({pull_other_nohealth_tot} total), compared to the city's overall rate of {pull_overall_nohealth}% and white residents' rate of {pull_white_nohealth}%. 
 
-- Both Hispanic and Black residents also have less access to health insurance than residents overall and white residents at statistically-significant levels. {pull_hisp_nohealth}% of Hispanic residents do not have health insurance ({pull_hisp_nohealth_tot %>% commafy} total), and {pull_black_nohealth}% of Black residents do not have health insurance ({pull_black_nohealth_tot %>% commafy} total).")
+- Both Hispanic and Black residents also have less access to health insurance than white residents at statistically-significant levels. {pull_hisp_nohealth}% of Hispanic residents do not have health insurance ({pull_hisp_nohealth_tot %>% commafy} total), and {pull_black_nohealth}% of Black residents do not have health insurance ({pull_black_nohealth_tot %>% commafy} total).")
 
-text_health_race_noinsur_compare <- glue("**Gaps for Black residents in Takoma Park exceed gaps in Montgomery County and Maryland at statistically significant levels, and gaps for residents with a race of 'other' exceed Montgomery County.** In Montgomery County and Maryland, {pull_black_nohealth_mont}% and {pull_black_nohealth_md}% of Black residents don't have health insurance, compared to {pull_black_nohealth}% of Black Takoma Park residents. {pull_other_nohealth}% of residents with a race of 'other' in Takoma Park do not have health insurance, compared to {pull_other_nohealth_mont}% of  Montgomery County residents with a race of 'other.'")
+text_health_race_noinsur_compare <- glue("**Gaps for Black residents in Takoma Park exceed gaps in Montgomery County and Maryland at statistically significant levels, as do gaps for residents with a race of 'other.'** In Montgomery County and Maryland, {pull_black_nohealth_mont}% and {pull_black_nohealth_md}% of Black residents don't have health insurance, compared to {pull_black_nohealth}% of Black Takoma Park residents. {pull_other_nohealth}% of residents with a race of 'other' in Takoma Park do not have health insurance, compared to {pull_other_nohealth_mont}% of Montgomery County residents with a race of 'other' and {pull_other_nohealth_md}% in Maryland.")
 
 
 ```
@@ -2244,13 +2326,13 @@ pull_health_1964_overall_tot <- pull_race_age_health(c("Takoma", "overall", "19-
 
 pull_health_19_overall <- pull_race_age_health(c("Takoma", "overall", "< 19"), "pct_age")
 
-text_race_age_health_summary <- glue("**Disparities in health-insurance access appear between white residents and most other races in the 19-64 year old age-range, and between white and black residents under 19.** Between 19 and 64, only {pull_health_1964_white}% of white residents lack health insurance, compared to {pull_health_1964_other}% of residents with a race of 'other', {pull_health_1964_hisp}% of Hispanic residents, {pull_health_1964_black}% of Black residents, and {pull_health_1964_asian}% of Asian residents. Black residents and residents with a race of 'other' between 19 and 64 in Takoma Park also have less access to health insurance than residents of the same race in Montgomery County and Maryland.")
+text_race_age_health_summary <- glue("**Disparities in health-insurance access appear between white residents and most other races in the 19-64 year old age-range.** Between 19 and 64, only {pull_health_1964_white}% of white residents lack health insurance, compared to {pull_health_1964_other}% of residents with a race of 'other', {pull_health_1964_hisp}% of Hispanic residents, {pull_health_1964_black}% of Black residents, and {pull_health_1964_asian}% of Asian residents. Black residents and residents with a race of 'other' between 19 and 64 in Takoma Park also have less access to health insurance than residents of the same race in Montgomery County and Maryland.")
 
-text_race_age_health <- glue("Low estimate-totals make assessing the statistical significance of disparities in health insurance access by age and race difficult. **Nonetheless, statistically significant disparities in access appear between white and people of color residents in the 19-64 year old age-range, and white and Black residents under 19-years old.**
+text_race_age_health <- glue("Low estimate-totals make assessing the statistical significance of disparities in health insurance access by age and race difficult. **Nonetheless, statistically significant disparities in access appear between white and people of color residents in the 19-64 year old age-range.**
 
 - {pull_health_1964_other}% of residents with a race of 'other' between 19 and 64 ({pull_health_1964_other_tot} total) and {pull_health_1964_hisp}% of 19-64 year old Hispanic residents ({pull_health_1964_hisp_tot} total) do not have health insurance, compared to {pull_health_1964_overall}% of all city residents and {pull_health_1964_white}% of white residents. 
 
-- Statistically significant disparities also exist in health insurance access between Black residents and white residents under 19, and between Black/Asian residents and white residents between 19 and 64. {pull_health_19_black}% of Black residents under 19 ({pull_health_19_black_tot} total) and {pull_health_1964_black}% of residents aged 19-64 ({pull_health_1964_black_tot} total) do not have health insurance, compared to {pull_health_19_white}% of white residents under 19 year-olds and {pull_health_1964_white}% of 19-64 year olds. Asian residents aged 19-64 also have lower rates of health insurance access than white residents in the same age group, with {pull_health_1964_asian}% of Asian residents in this age range lacking health insurance.")
+- Statistically significant disparities also exist in health insurance access between between Black/Asian residents and white residents between 19 and 64. {pull_health_19_black}% of Black residents under 19 ({pull_health_19_black_tot} total) and {pull_health_1964_black}% of residents aged 19-64 ({pull_health_1964_black_tot} total) do not have health insurance, compared to {pull_health_19_white}% of white residents under 19 year-olds and {pull_health_1964_white}% of 19-64 year olds. Asian residents aged 19-64 also have lower rates of health insurance access than white residents in the same age group, with {pull_health_1964_asian}% of Asian residents in this age range lacking health insurance.")
 
 text_race_age_health_compare <- glue("**Comparing locations by health insurance access, race, and age, residents with a race of 'other' and Black residents aged 19-64 in Takoma Park are less likely to have health insurance than in Montgomery County or Maryland.** For residents with a race of 'other' between 19 and 64, {pull_health_1964_other}% of Takoma Park residents lack health insurance compared to {pull_health_1964_other_mont}% in Montgomery County and {pull_health_1964_other_md}% in Maryland. For Black residents in the same age range, {pull_health_1964_black}% of Takoma Park residents lack health insurance compared to {pull_health_1964_black_mont}% in Montgomery County and {pull_health_1964_black_md}% in Maryland. Hispanic residents under 19 have slightly more access to health insurance than in Montgomery County or Maryland, with {pull_health_19_hisp}% of Hispanic Takoma Park residents lacking health insurance compared to {pull_health_19_hisp_mont}% of Montgomery County residents and {pull_health_19_hisp_md}% of Maryland residents.")
 
@@ -2331,7 +2413,7 @@ tenure_age <- tenure_age_root %>%
                  moe, 
                  bind_overall = "tenure") %>%
   est_moe_derive(c("name", "age_new"), name_col = "age_tot") %>%
-  rename(pct_age_moe = pct_moe) %>%
+  rename(pct_age_old_moe = pct_moe) %>%
   derive_pct_est_moe("pct_agegrp",
                      "age_tot_est",
                      "age_tot_moe") %>%
@@ -2424,7 +2506,7 @@ plots_tenure_age <- subplot(pct_tenure_pct_age %>%
                             nrows = 2,
                             shareX= T) %>%
   layout(title = "Households by tenure and age group",
-         xaxis = list(title = "Tenure"),
+         xaxis = list(title = ""),
          yaxis = list(title = ""))
 
 write.csv(write_tp_tenure_age, "./data/output_data/write_tp_tenure_age.csv")
@@ -2574,9 +2656,9 @@ pull_md_own_income <- pull_tenure_medincome(c("^maryland$", "own"), "estimate")
 
 
 ```{r income cost burden, echo=FALSE}
-renter_costs <- read_rds("./data/output_data/acs5_2019/tp_spec/household_income_rentercosts_processed_tp.rds")
+renter_costs <- read_rds("./data/output_data/acs5_2020/tpspec//household_income_rentercosts_processed_tp.rds")
 
-owner_costs <- read_rds("./data/output_data/acs5_2019/tp_spec/household_income_ownercosts_processed_tp.rds")
+owner_costs <- read_rds("./data/output_data/acs5_2020/tpspec//household_income_ownercosts_processed_tp.rds")
 
 owner_costs_processed <-  owner_costs %>%
   rename_all(tolower) %>%
@@ -2795,7 +2877,7 @@ subplots_racetenure <- subplot(sub_pct_race_tenure,
 
 
 ```{r text race tenure}
-text_racetenure <- glue("**There are significant racial disparities in homeownership in Takoma Park.** Despite representing {pull_white_tp_pct}% of the population, non-Hispanic white residents make up {pull_tp_ownpct_white}% of all homeowners, with a homeownership rate of {pull_tp_own_white}%; the only other households with a homeownership rate above 50% are Asian homeowners, with a rate of {pull_tp_own_asian}%. By contrast, Black residents make up {pull_tp_rentpct_black}% of the city's renters--despite representing {pull_black_tp_pct}% of the City's population--with a homeownership rate of {pull_tp_own_black}%. Households with a race of 'other' have a similarly low homeownership rate of {pull_tp_own_other}%, and Hispanic homeowners have a homeownership rate of {pull_tp_own_hispanic}%.")
+text_racetenure <- glue("**There are significant racial disparities in homeownership in Takoma Park.** Despite representing {pull_white_tp_pct}% of the population, non-Hispanic white residents make up {pull_tp_ownpct_white}% of all homeowners, with a homeownership rate of {pull_tp_own_white}%; the only other households with a homeownership rate above 50% are Asian homeowners, with a rate of {pull_tp_own_asian}%. By contrast, Black residents make up {pull_tp_rentpct_black}% of the city's renters--despite representing {pull_black_tp_pct}% of the City's population--with a homeownership rate of {pull_tp_own_black}%. Households with a race of 'other' have a similarly low homeownership rate of {pull_tp_own_other}%, and Hispanic residents have a homeownership rate of {pull_tp_own_hispanic}%.")
 
 ```
 
@@ -2923,25 +3005,25 @@ pull_md_incomeless35 <- pull_income_levels(c("^Maryland$", "34k"), "pct_cumul")
 pull_mont_incomeless35 <- pull_income_levels(c("Montgomery", "34k"), "pct_cumul")
 
 
-pull_tp_income125149 <- pull_income_levels(c("Takoma", "125k"), "pct_cumul")
+pull_tp_income125149 <- pull_income_levels(c("Takoma", "125k-"), "pct_cumul")
 
-pull_tp_income_125149_tot <- pull_income_levels(c("Takoma", "125k"), "tot_cumul")
+pull_tp_income_125149_tot <- pull_income_levels(c("Takoma", "125k-"), "tot_cumul")
 
-pull_md_income125149 <- pull_income_levels(c("^Maryland", "125k"), "pct_cumul")
-
-
-pull_tp_income7599 <- pull_income_levels(c("Takoma", "75k"), "pct_cumul")
-
-pull_tp_income_7599_tot <- pull_income_levels(c("Takoma", "75k"), "tot_cumul")
-
-pull_mont_income7599 <- pull_income_levels(c("Montgomery", "75k"), "pct_cumul")
+pull_md_income125149 <- pull_income_levels(c("^Maryland", "125k-"), "pct_cumul")
 
 
-pull_tp_income150199 <- pull_income_levels(c("Takoma", "150k"), "pct_cumul")
+pull_tp_income7599 <- pull_income_levels(c("Takoma", "75k-"), "pct_cumul")
 
-pull_tp_income_150199_tot <- pull_income_levels(c("Takoma", "150k"), "tot_cumul")
+pull_tp_income_7599_tot <- pull_income_levels(c("Takoma", "75k-"), "tot_cumul")
 
-pull_md_income150199 <- pull_income_levels(c("^Maryland", "150k"), "pct_cumul")
+pull_mont_income7599 <- pull_income_levels(c("Montgomery", "75k-"), "pct_cumul")
+
+
+pull_tp_income150199 <- pull_income_levels(c("Takoma", "150k-"), "pct_cumul")
+
+pull_tp_income_150199_tot <- pull_income_levels(c("Takoma", "150k-"), "tot_cumul")
+
+pull_md_income150199 <- pull_income_levels(c("^Maryland", "150k-"), "pct_cumul")
 
 
 income_vec <- income_levels$income_recode %>% unique
@@ -3020,6 +3102,9 @@ pull_race_income_household_more200 <- pull_creator(tp_race_income_household_data
 pull_black_income_household_less35 <- pull_race_income_household_less35("Black", "percent_race_households") %>%
   sum
 
+pull_asian_income_household_less35 <- pull_race_income_household_less35("Asian", "percent_race_households") %>%
+  sum
+
 pull_white_income_household_less35 <- pull_race_income_household_less35("White", "percent_race_households") %>%
   sum
 
@@ -3035,6 +3120,10 @@ pull_white_income_household_more100 <- pull_race_income_household_more100("White
 pull_hispanic_income_household_more100 <- pull_race_income_household_more100("hispanic", "percent_race_households") %>%
   sum
 
+pull_asian_income_household_more100 <- pull_race_income_household_more100("asian", "percent_race_households") %>%
+  sum
+
+
 
 pull_black_income_household_more200 <- pull_race_income_household_more200("Black", "percent_race_households") %>%
   sum
@@ -3049,14 +3138,14 @@ pull_hispanic_income_household_more200 <- pull_race_income_household_more200("hi
 
 ```{r text income dist race summary}
 
-text_incomedist_race_summary <- glue("**Racial disparities in income persist at the bottom and top of the income distribution, both exceeding inequalities in Maryland and Montgomery County.** {pull_black_income_household_less35}% of Takoma Park's Black households and {pull_hispanic_income_household_less35}% of its Hispanic households earn less than $35,000 a year, compared to {pull_white_income_household_less35}% of its white households.")
+text_incomedist_race_summary <- glue("**Racial disparities in income persist at the bottom and top of the income distribution, both exceeding inequalities in Maryland and Montgomery County.** {pull_asian_income_household_less35}% of Takoma Park's Asian households, {pull_black_income_household_less35}% of its Black households, and {pull_hispanic_income_household_less35}% of its Hispanic households earn less than $35,000 a year, compared to {pull_white_income_household_less35}% of its white households.")
 
 ```
 
 
 ```{r text income dist race}
 
-text_incomedist_race <- glue("**Reviewing more granular household income data provides more insight into these disparities.** {pull_black_income_household_less35}% of Takoma Park's Black households and {pull_hispanic_income_household_less35}% of its Hispanic households earn less than $35,000 a year, compared to {pull_white_income_household_less35}% of its white households By contrast, {pull_white_income_household_more100}% of white households earned more than $100,000 a year, compared to {pull_black_income_household_more100}% of Black households and {pull_hispanic_income_household_more100}% of Hispanic households; and {pull_white_income_household_more200}% of its white households earn more than $200,000, compared to {pull_black_income_household_more200}% of Black and {pull_hispanic_income_household_more200}% of Hispanic households. Although the low number of residents with a race of 'other' should caution over-interpreting the data, these residents show similar levels of income disparities to Black residents.")
+text_incomedist_race <- glue("**Reviewing more granular household income data provides more insight into these disparities.** {pull_asian_income_household_less35}% of Takoma Park's Asian households, {pull_black_income_household_less35}% of its Black households, and {pull_hispanic_income_household_less35}% of its Hispanic households earn less than $35,000 a year, compared to {pull_white_income_household_less35}% of its white households By contrast, {pull_white_income_household_more100}% of white households earned more than $100,000 a year, compared to {pull_black_income_household_more100}% of Black households and {pull_hispanic_income_household_more100}% of Hispanic households; and {pull_white_income_household_more200}% of its white households earn more than $200,000, compared to {pull_black_income_household_more200}% of Black and {pull_hispanic_income_household_more200}% of Hispanic households. Income-disparities exist among Asian residents in Takoma Park (although the low number of residents and high margin of error suggest caution); {pull_asian_income_household_less35}% of Asian households earn less than $35,000 annually, but {pull_asian_income_household_more100}% earn more than $100,000. Although the low number of residents with a race of 'other' should caution over-interpreting the data, these residents show similar levels of income disparities to Black residents.")
 
 ```
 
@@ -3092,6 +3181,16 @@ pull_md_black_incomeless35 <- pull_place_race_incomeless35(c("^Maryland$", "Blac
 
 pull_mont_black_incomeless35 <- pull_place_race_incomeless35(c("Montgomery", "Black"), "percent_race_households") %>%
   sum
+pull_mont_asian_incomeless35 <- pull_place_race_incomeless35(c("Montgomery", "Asian"), "percent_race_households") %>%
+  sum
+pull_md_asian_incomeless35 <- pull_place_race_incomeless35(c("^Maryland$", "Asian"), "percent_race_households") %>%
+  sum
+
+
+pull_ratio_tpmont_asian_incomeless35 <- (pull_asian_income_household_less35 / pull_mont_asian_incomeless35) %>% round(2)
+
+pull_ratio_tpmd_asian_incomeless35 <- (pull_asian_income_household_less35 / pull_md_asian_incomeless35) %>% round(2)
+
 
 pull_ratio_tpmont_black_incomeless35 <- (pull_black_income_household_less35 / pull_mont_black_incomeless35) %>% round(2)
 
@@ -3120,13 +3219,17 @@ race_income_household_hispanic <- race_income_household_data %>%
 race_income_household_other <- race_income_household_data %>%
   filter(grepl("Other", race))
 
+race_income_household_asian <- race_income_household_data %>%
+  filter(grepl("Asian", race))
+
+
 
 ```
 
 
 ```{r text race income compar}
 
-text_race_income_compare <- glue("**Comparing Takoma Park to Maryland and Montgomery County, non-white households in Takoma Park tend to earn lower incomes across the income spectrum, while white households in Takoma Park tend to earn higher incomes than Maryland households and slightly higher incomes than Montgomery County.** The share of Black Takoma Park residents earning less than $35,000 is {pull_ratio_tpmont_black_incomeless35} times higher than the share in Maryland, and {pull_ratio_tpmd_black_incomeless35} times higher than Montgomery County. For Hispanic residents in Takoma Park, the share is {pull_ratio_tpmd_hispanic_incomeless35} times higher than Maryland, and {pull_ratio_tpmont_hispanic_incomeless35} times higher than Montgomery County.")
+text_race_income_compare <- glue("**Comparing Takoma Park to Maryland and Montgomery County, non-white households in Takoma Park tend to earn lower incomes across the income spectrum, while white households in Takoma Park tend to earn higher incomes than Maryland households and slightly higher incomes than Montgomery County.** The share of Asian Takoma Park residents earning less than $35,000 is {pull_ratio_tpmont_asian_incomeless35} times higher than the share in Maryland, and {pull_ratio_tpmd_asian_incomeless35} times higher than Montgomery County; and the share of Black residents earning less than $35,000 is {pull_ratio_tpmont_black_incomeless35} times higher than the share in Maryland, and {pull_ratio_tpmd_black_incomeless35} times higher than Montgomery County. For Hispanic residents in Takoma Park, the share is {pull_ratio_tpmd_hispanic_incomeless35} times higher than Maryland, and {pull_ratio_tpmont_hispanic_incomeless35} times higher than Montgomery County.")
 
 ```
 
@@ -3136,10 +3239,11 @@ text_race_income_compare <- glue("**Comparing Takoma Park to Maryland and Montgo
 plot_raceincomecompare <- subplot(race_breakout_gen(race_income_household_black, "Black", TRUE, x = "income_recode"), 
                                   race_breakout_gen(race_income_household_white, "White", x = "income_recode"),
                                   race_breakout_gen(race_income_household_hispanic, "Hispanic", x = "income_recode"),
-                                  race_breakout_gen(race_income_household_other, "Other", x = "income_recode"), 
+                                  race_breakout_gen(race_income_household_other, "Other", x = "income_recode"),
+                                  race_breakout_gen(race_income_household_asian, "Asian", x = "income_recode"),
                                   shareX = TRUE, 
                                   shareY = TRUE,
-                                  nrows = 2) %>%
+                                  nrows = 3) %>%
   layout(title = "Cumulative percent of households by race, income, and place")
 ```
 
@@ -3373,9 +3477,25 @@ pull_fem_pov_tp <- pull_houstyp_pov(c("Takoma", "Female nonfamily"), "povfamhous
 pull_mal_pov_tp <-  pull_houstyp_pov(c("Takoma", "^Male nonfamily"), "povfamhous")
 pull_femfam_pov_tp <- pull_houstyp_pov(c("Takoma", "Single female"), "povfamhous")
 pull_fem_pov_tp_pct <- pull_houstyp_pov(c("Takoma", "Female nonfamily"))
+
+pull_fem_pov_mont_pct <- pull_houstyp_pov(c("Mont", "Female nonfamily"))
+
+pull_fem_pov_md_pct <- pull_houstyp_pov(c("^Maryland", "Female nonfamily"))
+
+
+pull_male_pov_tp_pct <- pull_houstyp_pov(c("Takoma", "^Male nonfamily"))
+
+pull_male_pov_mont_pct <- pull_houstyp_pov(c("Mont", "^Male nonfamily"))
+
+pull_male_pov_md_pct <- pull_houstyp_pov(c("Maryland", "^Male nonfamily"))
+
+
 pull_marr_pov_tp_pct <- pull_houstyp_pov(c("Takoma", "Married"))
 pull_femfam_pov_tp_pct <- pull_houstyp_pov(c("Takoma", "Single female"))
 
+pull_femfam_pov_md <- pull_houstyp_pov(c("Maryland", "Single female"))
+
+# pull_femfam_pov_md <- 
 ```
 
 ```{r houstype poverty age}
@@ -3476,7 +3596,7 @@ plot_family_pov_loc <- plot_ly(family_pov,
                                x = ~ location,
                                y = ~ pct_pov_fam,
                                type = "bar",
-                               text = ~ glue("Total:{pov_fam_est %>% commafy}
+                               text = ~ glue("Total: {pov_fam_est %>% commafy}
         Margin of error: {pct_moe}%
         Significant differences: {signif_check}"),
         color = ~ typ_child,
@@ -3528,7 +3648,7 @@ pull_mal_child_pov <- pull_family_pov(c("Takoma", "^Male: with "))
 pull_marr_child_pov <- pull_family_pov(c("Takoma", "Married: with "))
 pull_marr_nochild_pov <- pull_family_pov(c("Takoma", "Married: no chi"))
 pull_fem_child_pov_tot <- pull_family_pov(c("Takoma", "Female: with "), "pov_fam_est")
-pull_marr_nochild_pov_tot <- pull_family_pov(c("Takoma", "Married: with "), "pov_fam_est")
+pull_marr_nochild_pov_tot <- pull_family_pov(c("Takoma", "Married: no chi"), "pov_fam_est")
 pull_mal_child_pov_tot <- pull_family_pov(c("Takoma", "^Male: with "), "pov_fam_est")
 pull_fem_child_pov_md <- pull_family_pov(c("Maryland", "Female: with "))
 
@@ -3827,6 +3947,16 @@ pull_pov_tp_male_white <- pull_pov_sex_race(c("Takoma", "^Male", "white"),
 pull_pov_tp_male_multiracial <- pull_pov_sex_race(c("Takoma", "^Male", "multi"), 
                                                   "pct_race_sex_pov")
 
+pull_pov_tp_female_asian <- pull_pov_sex_race(c("Takoma", "Female", "asian"), 
+                                                  "pct_race_sex_pov")
+
+pull_pov_md_female_asian <- pull_pov_sex_race(c("^Maryland", "Female", "asian"), 
+                                                  "pct_race_sex_pov")
+
+pull_pov_mont_female_asian <- pull_pov_sex_race(c("Mont", "Female", "asian"), 
+                                                  "pct_race_sex_pov")
+
+
 pull_pov_md_female_white <- pull_pov_sex_race(c("Maryland", "Female", "white"), 
                                               "pct_race_sex_pov")
 
@@ -3852,11 +3982,11 @@ pull_pov_tp_male_hispanic <- pull_pov_sex_race(c("Takoma", "^Male", "hispanic"),
 
 
 
-text_pov_race_sex_p1 <- glue("**Estimates of poverty rates for women exceed men, although the magnitude of the difference varies by race.** The only difference between poverty rates by sex that appears as statistically-significant in Takoma Park is between Black women's poverty rate of {pull_pov_tp_female_black}% and Black men's rate of {pull_pov_tp_male_black}%. However, it is reasonable to assume that poverty rates for women are actually-higher for other races even if we're not sure how much because they're higher in Maryland and Montgomery County. In Maryland, poverty rates for women are higher than men at a statistically-significant level for all races except Asian; in Montgomery County, for all but multiracial residents.
+text_pov_race_sex_p1 <- glue("**Estimates of poverty rates for women exceed men, although the magnitude of the difference varies by race.** There are no differences that show up as statistically significant between sexes by race. However, it is reasonable to assume that poverty rates for women are higher even if we're not sure how much because they're higher in Maryland and Montgomery County. In Maryland, poverty rates for women are higher than men at a statistically-significant level for all races except Asian; in Montgomery County, for all but residents with a race of 'other.'
 
-**There are not statistically-significant differences in poverty rates by race between Takoma Park and Marlyand or Montgomery County, with a few exceptions.** The {pull_pov_tp_male_white}% poverty rate for white men in Takoma Park and the {pull_pov_tp_female_white}% poverty rate for white women fall below the {pull_pov_md_male_white}% rate for white men and {pull_pov_md_female_white}% rate for white women in Maryland; the {pull_pov_tp_male_black}% poverty rate for Black men in Takoma Park falls below the {pull_pov_md_male_black}% rate in Maryland; and the {pull_pov_tp_male_multiracial}% poverty rate for multiracial men in Takoma Park falls below the {pull_pov_md_male_multiracial}% poverty rate in Maryland.")
+**There are not statistically-significant differences in poverty rates by race and sex between Takoma Park and Marlyand or Montgomery County, with a few exceptions.** The poverty rate for Asian women in Takoma Park ({pull_pov_tp_female_asian}%) exceeds their poverty rate in Maryland ({pull_pov_md_female_asian}%) and Montgomery County ({pull_pov_mont_female_asian}%). The {pull_pov_tp_male_white}% poverty rate for white men in Takoma Park and the {pull_pov_tp_female_white}% poverty rate for white women fall below the {pull_pov_md_male_white}% rate for white men and {pull_pov_md_female_white}% rate for white women in Maryland; the {pull_pov_tp_male_black}% poverty rate for Black men in Takoma Park falls below the {pull_pov_md_male_black}% rate in Maryland; and the {pull_pov_tp_male_multiracial}% poverty rate for multiracial men in Takoma Park falls below the {pull_pov_md_male_multiracial}% poverty rate in Maryland, as does the poverty rate for white men ({pull_pov_tp_male_white}% vs. {pull_pov_md_male_white}%) and white women ({pull_pov_tp_female_white}% vs. {pull_pov_tp_female_white}%).")
 
-text_pov_race_sex_p2 <- glue("**Compared to white residents of the same sex in Takoma Park, female Black, Hispanic (with a poverty rate of {pull_pov_tp_female_hispanic}%), and 'other' ({pull_pov_tp_female_other}%) residents have a higher poverty rate than female white residents; and Black male residents have a higher poverty rate than white male residents.** Compared to the city's overall poverty rate of {pull_tp_poverty}%, white male, white female, and multiracial male residents have a lower poverty rate; and Black female residents have a higher poverty rate. It is likely that poverty rates in the same-sex for other races are higher than white-residents even if they do not show as statistically significant in Takoma Park. In the larger sample of Maryland and Montgomery County, there are statistically-significant differences between white male residents and male residents of all other races, and between white female residents and female residents of all other races (except in Maryland, for Asian women).")
+text_pov_race_sex_p2 <- glue("**Compared to white residents of the same sex in Takoma Park, female Asian, Black, Hispanic (with a poverty rate of {pull_pov_tp_female_hispanic}%), and 'other' ({pull_pov_tp_female_other}%) residents have a higher poverty rate than female white residents; and Black male residents have a higher poverty rate than white male residents.** Compared to the city's overall poverty rate of {pull_tp_poverty}%, white male, white female, and multiracial male residents have a lower poverty rate; and Asian and Black female residents have a higher poverty rate. It is likely that poverty rates in the same-sex for other races are higher than white-residents even if they do not show as statistically significant in Takoma Park. In the larger sample of Maryland and Montgomery County, there are statistically-significant differences between white male residents and male residents of all other races, and between white female residents and female residents of all other races (except in Maryland, for Asian women).")
 
 ```
 
@@ -4255,6 +4385,8 @@ pull_tp_poverty_other_moe <- pull_poverty_race(c("Takoma", "other"), "pct_moe")
 
 
 pull_tp_poverty_black_pctall <- pull_poverty_race(c("Takoma", "black"), "pct_all")
+pull_tp_poverty_asian_pctall <- pull_poverty_race(c("Takoma", "asian"), "pct_all")
+
 
 pull_tp_poverty_white_pctall <- pull_poverty_race(c("Takoma", "white"), "pct_all")
 
@@ -4273,14 +4405,19 @@ pull_md_poverty_white <- pull_poverty_race(c("^Maryland", "White"), "pct_poverty
 
 pull_mont_poverty_white <- pull_poverty_race(c("Montgomery", "White"), "pct_poverty")
 
+pull_md_poverty_asian <- pull_poverty_race(c("^Maryland", "asian"), "pct_poverty")
+
+pull_mc_poverty_asian <- pull_poverty_race(c("Montgomery", "asian"), "pct_poverty")
+
+
 #
-text_poverty_race <- glue("**There are significant racial disparities in poverty rates.** The most residents in poverty by race are Black (representing {pull_tp_poverty_black_tot} total residents), followed by Hispanic ({pull_tp_poverty_hispanic_tot}) and white ({pull_tp_poverty_white_tot}) residents. As discussed previously, the official poverty line undercounts the number of residents actually experiencing poverty, but the Census does not make race-disaggregated data available on residents' income relative to the poverty line. The counts of residents in poverty discussed here undercount the number of residents actually experiencing poverty, even if we cannot know the exact count.
+text_poverty_race <- glue("**There are significant racial disparities in poverty rates.** The most residents in poverty by race are Black (representing {pull_tp_poverty_black_tot} total residents), followed by white ({pull_tp_poverty_white_tot}) and Hispanic ({pull_tp_poverty_hispanic_tot}) residents. As discussed previously, the official poverty line undercounts the number of residents actually experiencing poverty, but the Census does not make race-disaggregated data available on residents' income relative to the poverty line. The counts of residents in poverty discussed here undercount the number of residents actually experiencing poverty, even if we cannot know the exact count.
 
-**Shares of persons in poverty differ from population shares.** Black residents represent {pull_black_tp_pct}% of the city's population but {pull_tp_poverty_black_pctall}% of residents in poverty, and their poverty rate of {pull_tp_poverty_black}% has a statistically significant difference from the city's rate of {pull_tp_poverty_overall}%. White residents make up {pull_white_tp_pct}% of the city's population but just {pull_tp_poverty_white_pctall}% of those in poverty, with a statistically-lower poverty rate of {pull_tp_poverty_white}%.
+**Shares of persons in poverty differ from population shares.** Black residents represent {pull_black_tp_pct}% of the city's population but {pull_tp_poverty_black_pctall}% of residents in poverty, and their poverty rate of {pull_tp_poverty_black}% has a statistically significant difference from the city's rate of {pull_tp_poverty_overall}%. Asian residents make up {pull_asian_tp_pct}% of the population but {pull_tp_poverty_asian_pctall}% of residents in poverty, with the City's highest poverty rate of {pull_tp_poverty_asian}% that's significantly higher than both the overall poverty line and white residents. White residents make up {pull_white_tp_pct}% of the city's population but just {pull_tp_poverty_white_pctall}% of those in poverty, with a statistically-lower poverty rate of {pull_tp_poverty_white}%.
 
-**Residents of multiple races have a statistically-higher poverty rate than white residents at a 90% level of confidence,** including Black residents, Hispanic residents ({pull_tp_poverty_hispanic}%), and Asian residents ({pull_tp_poverty_asian}%). Residents with a race of 'other' in the data have the highest estimate of their poverty rate at {pull_tp_poverty_other}%, but the high margin of error of {pull_tp_poverty_other_moe}% means our estimate of these residents' actual poverty rate at a 90% confidence level falls between {pull_tp_poverty_other - pull_tp_poverty_other_moe}% and {pull_tp_poverty_other + pull_tp_poverty_other_moe}%.
+**Residents of multiple races have a statistically-higher poverty rate than white residents at a 90% level of confidence,** including Black residents and Asian residents ({pull_tp_poverty_asian}%). Residents with a race of 'other' in the data have the highest estimate of their poverty rate at {pull_tp_poverty_other}%, but the high margin of error of {pull_tp_poverty_other_moe}% means our estimate of these residents' actual poverty rate at a 90% confidence level falls between {round(pull_tp_poverty_other - pull_tp_poverty_other_moe, 1)}% and {pull_tp_poverty_other + pull_tp_poverty_other_moe}%.
 
-There is not a statistically significant difference between poverty rates of different races in Takoma Park vs Maryland or Montgomery County, except that white residents have a lower poverty rate of {pull_tp_poverty_white}% than Maryland ({pull_md_poverty_white}%).")
+There is not a statistically significant difference between poverty rates of different races in Takoma Park vs Maryland or Montgomery County, except that white residents have a lower poverty rate of {pull_tp_poverty_white}% than Maryland ({pull_md_poverty_white}%), and Asian residents have a higher poverty rate than Maryland ({pull_md_poverty_asian}%) or Montgomery County ({pull_mc_poverty_asian}%).")
 
 text_poverty_race_summary <- glue("**There are significant racial disparities in poverty by race.** 
 Black residents represent {pull_black_tp_pct}% of the city's population but {pull_tp_poverty_black_pctall}% of residents in poverty, and their poverty rate of {pull_tp_poverty_black}% has a statistically significant difference from the city's rate. White residents make up {pull_white_tp_pct}% of the city's population but just {pull_tp_poverty_white_pctall}% of those in poverty, with a statistically-lower poverty rate of {pull_tp_poverty_white}%. Poverty rates for Hispanic residents ({pull_tp_poverty_hispanic}%), and Asian residents ({pull_tp_poverty_asian}%) also exceed white residents by a statistically significant degree.")
@@ -4365,9 +4502,16 @@ pull_mont_poverty_6 <- pull_poverty_age(c("Mont", "< 6"), "pct_agepov")
 pull_md_poverty_6 <- pull_poverty_age(c("^Maryland", "< 6"), "pct_agepov")
 
 
+pull_tp_poverty_611 <- pull_poverty_age(c("Takoma", "6-11"), "pct_agepov")
+pull_md_poverty_611 <- pull_poverty_age(c("^Maryland", "6-11"), "pct_agepov")
+
+
 pull_tp_poverty_6074 <- pull_poverty_age(c("Takoma", "60-74"), "pct_agepov")
 
 pull_mont_poverty_6074 <- pull_poverty_age(c("Mont", "60-74"), "pct_agepov")
+
+pull_md_poverty_6074 <- pull_poverty_age(c("^Maryland", "60-74"), "pct_agepov")
+
 
 pull_tp_poverty_1859 <- pull_poverty_age(c("Takoma", "18-59"), "pct_agepov")
 
@@ -4429,9 +4573,7 @@ pull_md_poverty_1217 <- pull_poverty_age(c("^Maryland", "12-17"), "pct_agepov")
 
 ```{r text unemployment}
 
-text_raceunemploy <- glue("**By race, there are statistically-significant differences in unemployment rates between Black residents and white residents, and between white residents and the city's overall unemployment rate of {pull_tp_unemploy}%.** Black residents under age 65 experience the highest unemployment levels at {pull_tp_black_unemploy}% (representing {pull_tp_black_unemploy_tot} total residents) compared to {pull_tp_white_unemploy}% for white residents (representing {pull_tp_white_unemploy_tot} residents).
-
-                          For other races, the low sample-sizes result in a high margin of error, meaning it is hard to tell whether differences in unemployment estimates actually exist or appear because of the particular group of residents the Census surveyed. However, in the larger sample of Montgomery County and Marlyand, there are significant differences in unemployment rates between Hispanic residents and white residents, residents with a race of 'other' and white residents, and multiracial residents and white residents. Because estimates of unemployment rates for these groups in Takoma Park are similar to or higher than in Montgomery County or Maryland, it is reasonable to think unemployment rates for these groups are actually-higher than white residents in Takoma Park even if the differences do not show up as statistically significant.")
+text_raceunemploy <- glue("**By race, white residents' unemployment rate falls below the city's overall unemployment rate of {pull_tp_unemploy}% at a statistically-significant level.** Between races, the low sample-sizes result in a high margin of error, meaning it is hard to tell whether differences in unemployment estimates actually exist or appear because of the particular group of residents the Census surveyed. However, in the larger sample of Montgomery County and Marlyand, there are significant differences in unemployment rates between Black and white residents, Hispanic residents and white residents, residents with a race of 'other' and white residents, and multiracial residents and white residents. Because estimates of unemployment rates for these groups in Takoma Park are similar to or higher than in Montgomery County or Maryland, it is reasonable to think unemployment rates for these groups are actually-higher than white residents in Takoma Park even if the differences do not show up as statistically significant.")
 
 ```
 
@@ -4568,6 +4710,17 @@ pull_hispanic_611_poverty_tot <- pull_race_age_poverty(c("Takoma", "6-11", "hisp
 
 pull_asian_75_poverty <- pull_race_age_poverty(c("Takoma", "75+", "asian"), "pct_age")
 
+pull_asian_75_poverty_moe <- pull_race_age_poverty(c("Takoma", "75+", "asian"), "pct_moe")
+
+pull_asian_6074_poverty <- pull_race_age_poverty(c("Takoma", "60-74", "asian"), "pct_age")
+
+pull_white_6074_poverty <- pull_race_age_poverty(c("Takoma", "60-74", "white"), "pct_age")
+
+pull_asian_6074_poverty_mont <- pull_race_age_poverty(c("Mont", "60-74", "asian"), "pct_age")
+
+pull_asian_6074_poverty_md <- pull_race_age_poverty(c("^Maryland", "60-74", "asian"), "pct_age")
+
+
 pull_asian_75_poverty_tot <- pull_race_age_poverty(c("Takoma", "75+", "asian"), "estimate")
 
 pull_asian_75_poverty_mont <- pull_race_age_poverty(c("Mont", "75+", "asian"), "pct_age")
@@ -4586,15 +4739,13 @@ pull_other_6_poverty_moe <- pull_race_age_poverty(c("Takoma", "< 6", "other"), "
 
 ```{r text age race poverty }
 
-text_poverty_race_age <- glue("The large margin of error with smaller-samples makes it difficult to compare estimates by age and race. For instance, the poverty rate estimate for residents with a race of 'other' less than 6 is {pull_other_6_poverty}% but the margin of error is {pull_other_6_poverty_moe}%, meaning that the actual value could be between 0% and {pull_other_6_poverty +pull_other_6_poverty_moe}%. **Still, some statistically-significant racial disparities emerge for specific age groups:**
+text_poverty_race_age <- glue("The large margin of error with smaller-samples makes it difficult to compare estimates by age and race. For instance, the poverty rate estimate for Asian residents 75 and over is {pull_asian_75_poverty}% but the margin of error is {pull_asian_75_poverty_moe}%, meaning that the actual value could be between 0% and 100%. **Still, some statistically-significant racial disparities emerge for specific age groups:**
                               
-- Through age 74, white residents have a statistically significant, lower rate of poverty than the city's overall rate at the same age. 
+- Age 60 and over, white residents have a statistically significant, lower rate of poverty than the city's overall rate at the same age.  
                               
-- Estimates of poverty for Black residents exceed white residents throughought the age spectrum, with statistically significant differences emerging at age 6 to 11 ({pull_black_611_poverty}% and {pull_black_611_poverty} total Black residents in this age group compared to {pull_white_611_poverty}% for white residents), 18-59 ({pull_black_1859_poverty}% and {pull_black_1859_poverty_tot} total compared to {pull_white_1859_poverty}%), and 60-74 ({pull_black_6074_poverty}% and {pull_black_6074_poverty_tot} total compared to {pull_white_6074_poverty}%). Black residents aged 60-74 also have a statistically-significant higher poverty rate than the city's overall poverty rate at that age ({pull_overall_6074_poverty}%). 
+- Estimates of poverty for Black residents exceed white residents throughought the age spectrum, with statistically significant differences at all ages other than 18-59. Black residents aged 60-74 also have a statistically-significant higher poverty rate than the city's overall poverty rate at that age ({pull_overall_6074_poverty}%). 
                               
-- Poverty rates for Hispanic residents aged 6-11 also exceed poverty rates for white residents in that age range, at {pull_hispanic_611_poverty}% (representing {pull_hispanic_611_poverty_tot} residents). 
-                              
-- Poverty rates for Asian residents over 75 jump to {pull_asian_75_poverty}% (representing {pull_asian_75_poverty_tot} residents), a higher rate than the overall rate for that age range ({pull_overall_75_poverty}%), white residents' ({pull_white_75_poverty}), Asian residents in Montgomery County ({pull_asian_75_poverty_mont}%) and Maryland ({pull_asian_75_poverty_md}%).")
+- Poverty rates for Asian residents over 75 jump to {pull_asian_75_poverty}% (representing {pull_asian_75_poverty_tot} residents). However, due to the large margin of error, the difference isn't statistically significant compared to other groups. From age 60-74 though, Asian residents' poverty rate of {pull_asian_6074_poverty}% exceeds white residents' in that age range ({pull_white_6074_poverty}), as well as Asian residents in Montgomery County ({pull_asian_6074_poverty_mont}%) and Maryland ({pull_asian_6074_poverty_md}%).")
 ```
 
 
@@ -4639,7 +4790,7 @@ sub_pov_race_age_tp_tot <- plot_ly(poverty_race_age_process_povonly %>%
 plot_race_age_poverty <- subplot(sub_pov_race_age_tp_pct,sub_pov_race_age_tp_tot, nrows = 2, shareX = T) %>%
   layout(title = "Poverty by race and age", xaxis = list(title = "Age-range"))
 
-text_race_summary <- glue("**Takoma Park is a diverse city with a population of {pull_pop_tp %>% commafy}.** By race, {pull_white_tp_pct}% of residents are white (non-Hispanic), {pull_black_tp_pct}% Black, {pull_hisp_tp_pct}% Hispanic (of any race), and {pull_asian_tp_pct}% Asian.")
+text_race_summary <- glue("**Takoma Park is a diverse city with a population of {pull_pop_tp %>% commafy}.** By race and ethnicity, {pull_white_tp_pct}% of residents are white (non-Hispanic), {pull_black_tp_pct}% Black, {pull_hisp_tp_pct}% Hispanic (of any race), and {pull_asian_tp_pct}% Asian.")
 
 text_ancestry_summary <- glue("**The largest reported non-European country of ancestry for residents is Ethiopia**, representing {pull_ethiopian_pct}% of the {pull_ssa %>% commafy} residents the Census reports as having sub-Saharan African ancestry. **The three largest country of ancestry of people with a reported race of Asian are Indian, Chinese, and Vietnamese** (representing {pull_indian}, {pull_chinese}, and {pull_vietnamese} residents respectively).")
 
@@ -4653,13 +4804,13 @@ text_ancestry_summary <- glue("**The largest reported non-European country of an
 
 **A little more than half of the city's residents are homeowners, but there are substantial economic and racial disparities tied to homeownership.** `r pull_tp_own_white`% of white residents own a home, compared to just `r pull_tp_own_black`% of Black residents. Renters earn much less than homeowners and are more-likely than owners to experience housing cost-burden (meaning they spend at least 30% of their income on housing). Renters' median income is \$`r pull_tp_rent_income %>% commafy` compared to \$`r pull_tp_own_income %>% commafy` for owners, and `r pull_tp_rent_30more`% of renters experience housing cost burden compared to `r pull_tp_own_30more`% of owners.
 
-**Economic opportunity in Takoma Park is also stratified by race.** `r pull_tp_incomeless35`% of Takoma Park households earn less than \$35,000 annually, and `r {100 - pull_tp_income7599}`% earn more than \$100,000. White households in Takoma Park have a median income of \$`r pull_tp_white_income %>% commafy`, compared to a Black median income of \$`r pull_tp_black_income %>% commafy`, a Hispanic median income of \$`r pull_tp_hispanic_income %>% commafy`, and a median income of households with a race of other of $`r pull_tp_other_income %>% commafy`. Income gaps between white and Black residents in Takoma Park almost double those in Montgomery County, and almost quadruple Maryland; income gaps between white and Hispanic residents follow a similar pattern. Poverty rates for Black, Hispanic, and Asian residents range from `r pull_tp_poverty_black`% to `r pull_tp_poverty_hispanic`%, and are between 3 and 4 times as high as white residents' rate of `r pull_tp_poverty_white`%. Black residents under age 65 experience the highest unemployment levels at `r pull_tp_black_unemploy`%, compared to `r pull_tp_white_unemploy`% of white residents.
+**Economic opportunity in Takoma Park is also stratified by race.** `r pull_tp_incomeless35`% of Takoma Park households earn less than \$35,000 annually, and `r {100 - pull_tp_income7599}`% earn more than \$100,000. White households in Takoma Park have a median income of \$`r pull_tp_white_income %>% commafy`, compared to a Black median income of \$`r pull_tp_black_income %>% commafy`, a Hispanic median income of \$`r pull_tp_hispanic_income %>% commafy`, and a median income of households with a race of other of $`r pull_tp_other_income %>% commafy`. Income gaps between white and Black residents in Takoma Park almost double those in Montgomery County, and almost quadruple Maryland; income gaps between white and Hispanic residents follow a similar pattern. Poverty rates for Black, Hispanic, and Asian residents range from `r pull_tp_poverty_hispanic`% to `r pull_tp_poverty_asian`%, and are about 3 times as high as white residents' rate of `r pull_tp_poverty_white`%. Black residents under age 65 experience the highest unemployment levels at `r pull_tp_black_unemploy`%, compared to `r pull_tp_white_unemploy`% of white residents.
 
 **Access to education, broadband internet, and health insurance varies by race and age:** 
 
-- *Education*: A higher share of the city's residents have a graduate degree than Montgomery County or Maryland (`r pull_tp_graduate`%) and a higher share have a graduate or bachelor's degree than Maryland (`r pull_tp_bachelor + pull_tp_graduate`%), but a higher share did not complete high school (`r pull_tp_lesshs`%) than Montgomery County or Maryland. There are substantial racial disparities in educational attainment; `r pull_tp_hisp_lesshs`% of the city's Hispanic residents do not have a high school diploma compared to `r pull_tp_white_lesshs`% of the city's white residents, and `r pull_tp_black_lesshs + pull_tp_black_hs`% of the city's Black population have a high school degree or did not complete high school compared to `r pull_tp_white_hs + pull_tp_white_lesshs`% of the city's white residents. 
+- *Education*: A higher share of the city's residents have a graduate degree than Montgomery County or Maryland (`r pull_tp_graduate`%) and a higher share have a graduate or bachelor's degree than Maryland (`r pull_tp_bachelor + pull_tp_graduate`%), but a higher share did not complete high school (`r pull_tp_lesshs`%) than Montgomery County or Maryland. There are substantial racial disparities in educational attainment; `r pull_tp_hisp_lesshs`% of the city's Hispanic residents do not have a high school diploma compared to `r pull_tp_white_lesshs`% of the city's white residents, and `r pull_tp_black_lesshs + pull_tp_black_hs`% of the city's Black population did not attend college compared to `r pull_tp_white_hs + pull_tp_white_lesshs`% of the city's white residents. 
 
-- *Internet*: `r pull_tp_broadband`% of residents have access to broadband internet, but rates are lower for residents with a race of 'other' (`r pull_tp_other_broad`%), Hispanic residents (`r pull_tp_hispanic_broad`%), and Black residents (`r pull_tp_black_broad`%). Residents 65 and older have lower rates of internet access than other age groups, with `r pull_broadband_65`% having access to broadband internet.
+- *Internet*: `r pull_tp_broadband`% of residents have access to broadband internet, but rates are lower for residents with a race of 'other' (`r pull_tp_other_broad`%) and Hispanic residents (`r pull_tp_hispanic_broad`%). Residents 65 and older have lower rates of internet access than other age groups, with `r pull_broadband_65`% having access to broadband internet.
 
 - *Health insurance*: Across age-groups, more Takoma Park residents either don't have insurance or have income-based insurance than Montgomery County or Maryland. Residents below 35 are especially likely to not have health insurance or use income-based insurance; `r pull_none_1934_pct`% of 19-34 year old residents do not have health insurance and `r pull_means_under18_pct`% of under 19 residents use income-based insurance, compared to city rates of `r pull_tp_noinsur`% and `r pull_tp_medicaid`% respectively. Racial disparities exist in health insurance access; only `r pull_white_nohealth`% of white residents do not have insurance, compared to `r pull_other_nohealth`% of residents with a race of 'other', `r pull_hisp_nohealth`% of Hispanic residents, and `r pull_black_nohealth`% of Black residents.
 
@@ -4924,10 +5075,10 @@ race_age_tp_plot <- race_age_tp %>%
 
 text_raceage <- glue("**Different races have different age-distributions compared to the city overall:**
 
-                     - White residents tend to be older compared to the rest of the city. There are a lower share of white residents aged 25-34 ({pull_white_2534_pct}%), and a higher share of residents aged 45-54 ({pull_white_4554_pct}%), 55-64 ({pull_white_5564_pct}%), and 65-74 ({pull_white_6574_pct}%).
-                     - For Black residents, there are a lower share of residents aged 10-17 ({pull_black_1017_pct}%), 50-59 ({pull_black_5564_pct}%), and 65-74 ({pull_black_6574_pct}%), and a higher share of residents aged 25-34 ({pull_black_2534_pct}%). The highest share of Black residents are aged 35-44 at {pull_black_3544_pct}%, but there is not a statistically-significant difference from the city's overall percent of aged 35-44 year old residents ({pull_overall_3544_pct}%). 
-                     - For Hispanic residents, there are a higher share of residents aged 18-24 ({pull_hispanic_1824_pct}%), and a lower share of residents aged 55-64 ({pull_hispanic_5564_pct}%). 
-                     - Asian residents and residents with a race of 'other' mostly follow the City's demographics, but there are a lower share of 0-9 Asian residents at {pull_asian_09_pct}%. For, residents with a race of 'other,' there are a lower share of residents between 55 and 64 year-old ({pull_other_5564_pct}%) and 25 and 34 ({pull_other_2534_pct}%), and a higher share between 18 and 24 ({pull_other_1824_pct}%).
+                     - White residents tend to be older compared to the rest of the city. There are a lower share of white residents aged 25-34 ({pull_white_2534_pct}%), and a higher share of residents aged 55-64 ({pull_white_5564_pct}%) and 65-74 ({pull_white_6574_pct}%).
+                     - For Black residents, there are a lower share of residents 55-64 ({pull_black_5564_pct}%), and a higher share of residents aged 25-34 ({pull_black_2534_pct}%, although this difference is not statistically significant). The highest share of Black residents are aged 35-44 at {pull_black_3544_pct}%, but there is not a statistically-significant difference from the city's overall percent of aged 35-44 year old residents ({pull_overall_3544_pct}%). 
+                     - For Hispanic residents, there are a higher share of residents aged 18-24 ({pull_hispanic_1824_pct}%), and a lower share of residents aged 55-64 ({pull_hispanic_5564_pct}%, although this difference is not statistically significant). 
+                     - Asian residents and residents with a race of 'other' mostly follow the City's demographics, but there are a lower share of 0-9 Asian residents at {pull_asian_09_pct}%. For, residents with a race of 'other,' there are a higher share of residents between 18 and 24 ({pull_other_1824_pct}%).
                      - Multiracial residents are mostly under 18--representing {pull_multiracial_09_pct + pull_multiracial_1017_pct}% of multiracial residents--with a lower share of residents 45-74 ({pull_multiracial_4554_pct + pull_multiracial_5564_pct + pull_multiracial_6574_pct}%) than the city's overall demographics.")
 
 ```
@@ -5003,7 +5154,7 @@ plot_race_age_barcomp
 
 ```
 
-*Note: Due to the low number of NHPI and AIAN residents in Takoma Park, they are omitted from the above chart.*
+*Note: Due to the low number of NHPI residents in Takoma Park, they are omitted from the above chart.*
 
 
 #### Sex race
@@ -5068,7 +5219,7 @@ pull_multiracial_male <- pull_race_sex(c("Other", "^Male"), "pct_sex") %>%
   round(1)
 
 
-text_racegender <- glue("**There are not significant differences by race and sex from the overall population with two exceptions.** There are more female multiracial residents than male, at {pull_multiracial_female}% of multi-racial residents, and more male residents with a racial category of 'other' than female at {pull_multiracial_male}% of residents with a racial cateogrization of 'other.'")
+text_racegender <- glue("**There are not significant differences by race and sex from the overall population.** Although not statistically significant, the Census estimates there are more female multiracial residents than male, at {pull_multiracial_female}% of multi-racial residents, and more male residents with a racial category of 'other' than female at {pull_multiracial_male}% of residents with a racial cateogrization of 'other.'")
 
 ```
 
@@ -5100,7 +5251,7 @@ plot_race_sex
 
 ```
 
-*Note: Due to the low number of NHPI and AIAN residents in Takoma Park, they are omitted from the above chart.*
+*Note: Due to the low number of NHPI residents in Takoma Park, they are omitted from the above chart.*
 
 
 ### Age, sex, and families
@@ -5167,7 +5318,7 @@ plot_ly(age_grped,
 
 #### Household-type
 
-[The Census defines](https://www.census.gov/programs-surveys/cps/technical-documentation/subject-definitions.html#familyhousehold) a household as all people in a housing unit. A housing unit is a separate living quarters, meaning occupants have a dedicated space or structure for them. A single-family house is a housing unit, one apartment in an apartment building is a housing unit, and one room in a grouphouse is a housing unit. A householder is the person renting or owning a housing unit (in the case of a couple, it could be either of the two).
+[The Census defines](https://www.census.gov/programs-surveys/cps/technical-documentation/subject-definitions.html#familyhousehold) a household as all people in a housing unit. A housing unit is a separate living quarters, meaning occupants have a dedicated space or structure for them. A single-family house is a housing unit, and one apartment in an apartment building is a housing unit. A householder is the person renting or owning a housing unit (in the case of a couple, it could be either of the two).
 
 **Of Takoma Park's `r pull_tot_households %>% commafy` households, `r pull_hous_family %>% commafy` are family households--meaning they are rented or owned by a householder who lives with at least one family member--and `r pull_hous_nonfamily %>% commafy` are nonfamily.** The largest share of households are married-couple householders (representing `r pull_housfam_married %>% commafy` households), followed by `r pull_housfam_alone %>% commafy` householders living alone and `r pull_housfam_singfem %>% commafy` single-female family households.
 
@@ -5219,13 +5370,13 @@ subplot(tp_family_byocc_tot %>% subplot_title("Takoma Park family total"), subpl
 
 ```
 
-A higher share of married Takoma Park households have children (`r pull_tp_married_child_pct`%) than Montgomery County (`r pull_mc_married_child_pct`%) or Maryland (`r pull_md_married_child_pct`%). A smaller share of single-man households live alone in Takoma Park, at `r pull_tp_male_alone_pct`% compared to `r pull_mc_male_alone_pct`% in Montgomery County and `r pull_md_male_alone_pct`% in Maryland.
+A higher share of married Takoma Park households have children (`r pull_tp_married_child_pct`%) than Montgomery County (`r pull_mc_married_child_pct`%) or Maryland (`r pull_md_married_child_pct`%). A smaller share of single-woman households live with relatives in Takoma Park, at `r pull_tp_female_rel_pct`% compared to `r pull_mc_female_rel_pct`% in Montgomery County and `r pull_md_female_rel_pct`% in Maryland.
 
 #### Age by sex
 
-The largest share of female residents in the City are aged 30-39 (representing `r pull_female_3039_pct`% of the female-residents and `r pull_female_3039_pctpop`% of the City's population), followed by people aged 40-49 at `r pull_female_4049_pct`% of female-residents and `r pull_female_4049_pctpop`% of the population. The largest share of male residents are aged 40-49--at `r pull_male_4049_pct`% of males and `r pull_male_4049_pctpop`% of the population--and 0-9, representing `r pull_male_09_pct`% of males and `r pull_male_09_pctpop`% of the population.
+The largest share of female residents in the City are aged 40-49 at `r pull_female_4049_pct`% of female-residents and `r pull_female_4049_pctpop`% of the population, followed by people aged 30-39 (representing `r pull_female_3039_pct`% of the female-residents and `r pull_female_3039_pctpop`% of the City's population). The largest share of male residents are aged 0-9--representing `r pull_male_09_pct`% of males and `r pull_male_09_pctpop`% of the population--and 40-49, representing `r pull_male_4049_pct`% of males and `r pull_male_4049_pctpop`% of the population.
 
-The biggest between-sexes differences by age are in people aged 30-39 and 0-9. There are `r pull_diff_09_tot` more male-residents between 0 and 9 than female (representing `r pull_male_09_pct`% of male residents compared to `r pull_female_09_pct`% of female residents), and `r pull_diff_3039_tot` more female-residents between 30 and 39 than male (representing `r pull_female_3039_pct`% of female residents compared to `r pull_male_3039_pct`% of male residents). 
+The biggest between-sexes differences by age are in people aged 30-49. There are `r pull_diff_3039_tot + pull_diff_4049_tot` more female-residents between 30 and 39 than male (representing `r pull_female_3039_pct + pull_female_4049_pct`% of female residents compared to `r pull_male_3039_pct+pull_male_4049_pct`% of male residents). 
 
 ```{r plot age sex}
 
@@ -5339,7 +5490,7 @@ plot_race_birthplace <- plot_ly(race_foreign_born %>%
                                 x = ~ race,
                                 type = "bar",
                                 y = ~ pct_race,
-                                text = ~ glue("{pct_race}%"),
+                                text = ~ glue("{round(pct_race, 1)}%"),
                                 textfont = list(color = "black"),
                                 textposition = "inside",
                                 opacity = 0.8,
@@ -5357,16 +5508,11 @@ plot_race_birthplace
 
 ```
 
-*Note: Due to the low number of NHPI and AIAN residents in Takoma Park, they are omitted from the above chart.*
+*Note: Due to the low number of NHPI residents in Takoma Park, they are omitted from the above chart.*
 
 
 #### Ancestry
 
-```{r text ancestry}
-
-text_ancestry <- glue("**The Census reports {pull_num_ancestrygrps} ancestry groups in Takoma Park with at least 50 people, and no ancestry group represents more than {pull_ssa_pct}% of the population.** The largest reported group in Takoma Park by the Census's ancestry-categories are sub-Saharan African at { pull_ssa %>% commafy} (representing {pull_ssa_pct}% of residents), followed by English at {pull_english %>% commafy} residents, German at {pull_german %>% commafy} residents, and West Indian at {pull_westindian %>% commafy} residents. Due to the small numbers involved and high margin of error, caution should be taken in reading too much into exact estimates.")
-
-```
 
 `r text_ancestry`
 
@@ -5379,7 +5525,7 @@ plot_ancestry_overall
 
 ```{r text ancestry disag}
 
-text_ancestry_disag <- glue("While the Census groups countries of ancestry for Arab, sub-Saharan African, and West Indian residents, the Census does make available disaggregated data by country of ancestry for these residents. A majority of residents of sub-Saharan African ancestry are Ethiopian (representing {pull_ethiopian %>% commafy} residents and {pull_ethiopian_pct}% of residents of sub-Saharan African ancestry); the only other individual country of ancestry with more than 50 residents was Nigeria at {pull_nigeria %>% commafy} residents. Most residents of West Indian ancestry are either Haitian (representing {pull_haiti} residents and {pull_haiti_pct}% of West Indian residents) or Jamaican (representing {pull_jamaica} residents and {pull_jamaica_pct}% of West Indian residents). No country of ancestry for Arab residents has at least 50 resident; the most Arab residents are of Jordanian ancestry at {pull_jordan_tot} residents.")
+text_ancestry_disag <- glue("While the Census groups countries of ancestry for Arab, sub-Saharan African, and West Indian residents, the Census does make available disaggregated data by country of ancestry for these residents. A majority of residents of sub-Saharan African ancestry are Ethiopian (representing {pull_ethiopian %>% commafy} residents and {pull_ethiopian_pct}% of residents of sub-Saharan African ancestry); the only other individual country of ancestry with more than 50 residents is Nigeria at {pull_nigeria %>% commafy} residents. Most residents of West Indian ancestry are either Haitian (representing {pull_haiti} residents and {pull_haiti_pct}% of West Indian residents) or Jamaican (representing {pull_jamaica} residents and {pull_jamaica_pct}% of West Indian residents). No country of ancestry for Arab residents has at least 50 resident; the most Arab residents are of Jordanian ancestry at {pull_jordan_tot} residents.")
 
 ```
 
@@ -5683,7 +5829,7 @@ plot_race_disability
 
 ```
 
-*Note: Due to the low number of NHPI and AIAN residents in Takoma Park, they are omitted from the above chart.*
+*Note: Due to the low number of NHPI residents in Takoma Park, they are omitted from the above chart.*
 
 #### Disability by type
 
@@ -5695,7 +5841,7 @@ plots_disabtype_sub
 
 ```
 
-At a statistically-significant level, Takoma Park residents overall are less likely than Maryland residents to have any type of disability other than vision disabilities. Compared to Montgomery County residents, Takoma Park residents are less likely to have cognitive disabilities--representing `r pull_disab_type_cognitive_pct`% of Takoma Park residents compared to `r pull_disab_type_cognitive_pct_mont`% of Montgomery County residents--and hearing disabilities, representing `r pull_disab_type_hearing_pct`% of Takoma Park residents compared to `r pull_disab_type_hearing_pct_mont`% of County residents.
+At a statistically-significant level, Takoma Park residents overall are less likely than Maryland residents to have any type of disability. Compared to Montgomery County residents, Takoma Park residents are less likely to have cognitive disabilities, hearing disabilities, self-care disabilities, and independent-living disabilities.
 
 #### Disability by type and age
 
@@ -5785,7 +5931,7 @@ fig_race_ethn
 plot_race_age_barcomp
 ```
 
-*Note: Due to the low number of NHPI and AIAN residents in Takoma Park, they are omitted from the above chart.*
+*Note: Due to the low number of NHPI residents in Takoma Park, they are omitted from the above chart.*
 
 
 #### Race sex
@@ -5798,7 +5944,7 @@ plot_race_sex
 
 ```
 
-*Note: Due to the low number of NHPI and AIAN residents in Takoma Park, they are omitted from the above chart.*
+*Note: Due to the low number of NHPI residents in Takoma Park, they are omitted from the above chart.*
 
 
 #### Race birthplace
@@ -5811,7 +5957,7 @@ plot_race_birthplace
 
 ```
 
-*Note: Due to the low number of NHPI and AIAN residents in Takoma Park, they are omitted from the above chart.*
+*Note: Due to the low number of NHPI residents in Takoma Park, they are omitted from the above chart.*
 
 
 
@@ -5850,7 +5996,7 @@ plot_race_disability
 
 ```
 
-*Note: Due to the low number of NHPI and AIAN residents in Takoma Park, they are omitted from the above chart.*
+*Note: Due to the low number of NHPI residents in Takoma Park, they are omitted from the above chart.*
 
 
 ### Housing
@@ -5873,7 +6019,7 @@ subplots_racetenure
 
 ```
 
-*Note: Due to the low number of NHPI and AIAN residents in Takoma Park, they are omitted from the above chart.*
+*Note: Due to the low number of NHPI residents in Takoma Park, they are omitted from the above chart.*
 
 #### Housing cost burden by home-ownership
 
@@ -5920,7 +6066,7 @@ sublots_tenure_costburden_income
 plot_raceincome
 ```
 
-*Note: Due to the low number of NHPI and AIAN residents in Takoma Park, they are omitted from the above chart.*
+*Note: Due to the lower number of NHPI, AIAN, and Asian residents in Takoma Park, the Census does not report data on their median income.*
 
 #### Income distribution race
 
@@ -5932,7 +6078,7 @@ plot_raceincome_dist
 
 ```
 
-*Note: Due to the low number of NHPI and AIAN residents in Takoma Park, they are omitted from the above chart.*
+*Note: Due to the low number of NHPI residents in Takoma Park, they are omitted from the above chart.*
 
 
 #### Poverty race
@@ -5945,7 +6091,7 @@ plot_race_poverty
 
 ```
 
-*Note: Due to the low number of NHPI and AIAN residents in Takoma Park, they are omitted from the above chart.*
+*Note: Due to the low number of NHPI residents in Takoma Park, they are omitted from the above chart.*
 
 #### Poverty by sex/race
 
@@ -5980,7 +6126,7 @@ plot_race_age_poverty
 
 ```
 
-*Note: Due to the low number of NHPI and AIAN residents in Takoma Park, they are omitted from the above chart.*
+*Note: Due to the low number of NHPI residents in Takoma Park, they are omitted from the above chart.*
 
 #### Unemployment race
 
@@ -5991,7 +6137,7 @@ plot_race_unemploy
 
 ```
 
-*Note: Due to the low number of NHPI and AIAN residents in Takoma Park, they are omitted from the above chart.*
+*Note: Due to the low number of NHPI residents in Takoma Park, they are omitted from the above chart.*
 
 ### Education, health, and internet-access
 
@@ -6037,7 +6183,7 @@ plot_computer_race
 
 ```
 
-*Note: Due to the low number of NHPI and AIAN residents in Takoma Park, they are omitted from the above chart.*
+*Note: Due to the low number of NHPI residents in Takoma Park, they are omitted from the above chart.*
 
 
 `r text_computer_compare_race`
@@ -6048,7 +6194,7 @@ plot_int_access_race_comp
 
 ```
 
-*Note: Due to the low number of NHPI and AIAN residents in Takoma Park, they are omitted from the above chart.*
+*Note: Due to the low number of NHPI residents in Takoma Park, they are omitted from the above chart.*
 
 
 #### Health insurance
@@ -6061,7 +6207,7 @@ plot_health_race_noinsur
 
 ```
 
-*Note: Due to the low number of NHPI and AIAN residents in Takoma Park, they are omitted from the above chart.*
+*Note: Due to the low number of NHPI residents in Takoma Park, they are omitted from the above chart.*
 
 
 `r text_health_race_noinsur_compare`
@@ -6075,7 +6221,7 @@ plot_race_age_health
 
 ```
 
-*Note: Due to the low number of NHPI and AIAN residents in Takoma Park, they are omitted from the above chart.*
+*Note: Due to the low number of NHPI residents in Takoma Park, they are omitted from the above chart.*
 
 `r text_race_age_health_compare`
 
@@ -6111,7 +6257,7 @@ plot_race_age_health
 
 #### Home-ownership {-}
 
-Approximately `r pull_tp_rent_pct`% of Takoma Park's population are renters.
+Approximately `r pull_tp_rent_pct`% of Takoma Park's population are renters, higher than Maryland or Montgomery County.
 
 ```{r  plot tenure, echo=FALSE}
 # 
@@ -6169,7 +6315,7 @@ subplots_racetenure
 
 ```
 
-*Note: Due to the low number of NHPI and AIAN residents in Takoma Park, they are omitted from the above chart.*
+*Note: Due to the low number of NHPI residents in Takoma Park, they are omitted from the above chart.*
 
 
 #### Homeownership by age
@@ -6286,11 +6432,11 @@ sublots_tenure_costburden_income
 
 #### *Unemployment*
 
-**Takoma Park has `r pull_tp_unemploy_num` unemployed residents over 65,** for an unemployment rate of `r pull_tp_unemploy`%. 
+**Takoma Park has `r pull_tp_unemploy_num` unemployed residents under 65,** for an unemployment rate of `r pull_tp_unemploy`%. 
 
 `r text_raceunemploy_summary`
 
-**Unemployment rates decline with age from a high of `r pull_tp_unemploy_2021`% at 20-21 to a low of 0 percent for people aged 60 to 69.** People aged 45 to 54 have a statistically-significant, higher unemployment rate in Takoma Park than Montgomery County or Maryland at `r pull_tp_unemploy_4554`% compared to `r pull_mont_unemploy_4554`% in Montgomery County and `r pull_md_unemploy_4554`% in Maryland.
+**Unemployment rates decline with age from a high of `r pull_tp_unemploy_2021`% at 20-21 to a low of 0 percent for people aged 60 to 61 and 65 to 69.** No differences between Takoma Park and Maryland or Montgomery County are statistically significant.
 
 ### Income
 
@@ -6336,7 +6482,7 @@ plot_raceincome
 
 ```
 
-*Note: American Indians/Alaska Natives as well as Native Hawaiians and other Pacific Islanders are excluded from the above chart because of the low number of these residents in Takoma Park.*
+*Note: Native Hawaiians and other Pacific Islanders are excluded from the above chart because of the low number of these residents in Takoma Park.*
 
 #### Income distribution by race {-}
 
@@ -6348,7 +6494,7 @@ plot_raceincome
 plot_raceincome_dist
 ```
 
-*Note: Due to the low number of NHPI and AIAN residents in Takoma Park, they are omitted from the above chart.*
+*Note: Due to the low number of NHPI residents in Takoma Park, they are omitted from the above chart.*
 
 
 `r text_race_income_compare`
@@ -6358,9 +6504,6 @@ plot_raceincome_dist
 plot_raceincomecompare
 
 ```
-
-*Note: Due to the low number of NHPI and AIAN residents in Takoma Park, they are omitted from the above chart.*
-
 
 
 ### Poverty
@@ -6391,7 +6534,7 @@ plot_raceincomecompare
 
 The ACS makes detailed data available on residents' income relative to the poverty threshold. The official US poverty line for a family of four in 2021 is \$[26,500](https://aspe.hhs.gov/2021-poverty-guidelines). The line underestimates actual poverty; it is [outdated](https://www.americanprogress.org/issues/poverty/news/2020/03/05/481314/poverty-line-matters-isnt-capturing-everyone/) and does not account for costs other than food (e.g., housing, transportation, medical costs). A number of federal programs base eligibility on the poverty line; for example, households cannot earn more than 130% of the federal poverty line to qualify for the Supplemental Nutrition Assistance Program (SNAP).
 
-**Takoma Park has a similar poverty rate to Montgomery County and Maryland.** `r pull_tp_poverty`% of Takoma Park's population is below the poverty line (`r pull_tp_poverty_tot %>% commafy` residents), compared to `r pull_mont_poverty`% of Montgomery County. An additional `r pull_tp_below150-pull_tp_poverty`% (`r (pull_tp_below150_tot - pull_tp_poverty_tot) %>% commafy` residents) of Takoma Park's population earn between 100% and 149% of the poverty level (compared to `r pull_mont_below150-pull_mont_poverty`% for Montgomery County), and an additional `r pull_tp_below2-pull_tp_below150`% (`r (pull_tp_below2_tot - pull_tp_below150_tot) %>% commafy` residents) earn between 150% and 199% of the poverty line (compared to `r pull_mont_below2-pull_mont_below150` in Montgomery County). Given [inaccuracies](https://www.businessinsider.com/us-poverty-measure-misleading-outdated-leaves-out-millions-american-families-2020-7) in US poverty measures, many of these residents are economically vulnerable.
+**Takoma Park has a similar poverty rate to Montgomery County and Maryland.** `r pull_tp_poverty`% of Takoma Park's population is below the poverty line (`r pull_tp_poverty_tot %>% commafy` residents), compared to `r pull_mont_poverty`% of Montgomery County. An additional `r pull_tp_below150-pull_tp_poverty`% (`r (pull_tp_below150_tot - pull_tp_poverty_tot) %>% commafy` residents) of Takoma Park's population earn between 100% and 149% of the poverty level (compared to `r pull_mont_below150-pull_mont_poverty`% for Montgomery County), and an additional `r pull_tp_below2-pull_tp_below150`% (`r (pull_tp_below2_tot - pull_tp_below150_tot) %>% commafy` residents) earn between 150% and 199% of the poverty line (compared to `r pull_mont_below2-pull_mont_below150`% in Montgomery County). Given [the outdated nature of US poverty measures](https://www.businessinsider.com/us-poverty-measure-misleading-outdated-leaves-out-millions-american-families-2020-7), many of these residents are economically vulnerable.
 
 ```{r plot income pov detail}
 
@@ -6425,7 +6568,7 @@ plot_race_poverty
 
 ```
 
-*Note: Due to the low number of NHPI and AIAN residents in Takoma Park, they are omitted from the above chart.*
+*Note: Due to the low number of NHPI residents in Takoma Park, they are omitted from the above chart.*
 
 
 #### Poverty by sex
@@ -6441,9 +6584,9 @@ plot_pov_sex
 
 #### Poverty by age
 
-**Due to the small samples involved and large margin of error, no age group had a statistically significant difference from the city's overall poverty rate** of `r pull_tp_poverty_overall`% (meaning we cannot conclude with at least 90% confidence that any age group's poverty rate is actually higher or lower than the overall rate, even if the estimate is higher or lower). For instance, the highest estimated poverty rate by age group was for people aged 75 and older at `r pull_tp_poverty_75`% but the margin of error was `r pull_tp_poverty_75_moe`%, meaning our estimate of the actual-rate at 90% confidence falls between `r pull_tp_poverty_75 - pull_tp_poverty_75_moe`% and `r pull_tp_poverty_75 + pull_tp_poverty_75_moe`%. The only age group with a statistically-significant difference from the city's overall poverty rate were children under 6, with a poverty rate of `r pull_tp_poverty_6`%.
+**Residents less than age 6 and between 12 and 17 had a statistically lower poverty rate than the City's overall rate of of `r pull_tp_poverty_overall`%, and residents 60-74 had a statistically higher poverty rate**. Children under 6 had a poverty rate of `r pull_tp_poverty_6`%, residents aged 12 to 17 had a poverty rate of `r pull_tp_poverty_1217`%, and residents aged 60-74 had a `r pull_tp_poverty_6074`% poverty rate. 
 
-**Some age groups did have a statistically significant difference in poverty-rates compared to Montgomery County and Maryland.** Takoma Park residents aged 60 to 74 and 18 to 59 had higher poverty rates than Montgomery County, at `r pull_tp_poverty_6074`% compared to `r pull_mont_poverty_6074`% for people aged 60 to 74 and `r pull_tp_poverty_1859`% compared to `r pull_mont_poverty_1859`% for people 18 to 59. Residents aged 12-17 had a statistically lower poverty rate than Maryland at `r pull_tp_poverty_1217`% compared to `r pull_md_poverty_1217`%, and residents under 6 had a lower poverty rate than Montgomery County or Maryland at `r pull_tp_poverty_6`% compared to `r pull_mont_poverty_6`% and `r pull_md_poverty_6`% respectively.
+**Some age groups did have a statistically significant difference in poverty-rates compared to Montgomery County and Maryland.** Takoma Park residents aged 60 to 74 had higher poverty rates than Montgomery County and Maryland, at `r pull_tp_poverty_6074`% compared to `r pull_mont_poverty_6074`% and `r pull_md_poverty_6074` respectively. Residents aged 6-11 had a statistically lower poverty rate than Maryland at `r pull_tp_poverty_611`% compared to `r pull_md_poverty_611`%; and residents under 6 and aged 12-17 had a lower poverty rate than Montgomery County or Maryland at `r pull_tp_poverty_6`% compared to `r pull_mont_poverty_6`% and `r pull_md_poverty_6`% respectively for residents under 6, and `r pull_tp_poverty_1217`% compared to `r pull_mont_poverty_1217`% and `r pull_md_poverty_1217`% for residents aged 12-17.
 
 ```{r plot poverty age}
 plot_age_pov_pct <- plot_ly(poverty_age_processed,
@@ -6496,7 +6639,7 @@ plots_hous_typ_poverty
 
 *Note: the City poverty rate of `r pull_tp_poverty`% differs from the household rate of `r pull_house_pov`% because the city rate applies to people, and the household rate to households.*
 
-Compared to the City's household poverty rate of `r pull_house_pov`%, poverty rates for female nonfamily households (`r pull_fem_pov_tp_pct`%) are higher at a statistically significant level, and poverty rates for married couples are lower (`r pull_marr_pov_tp_pct`%). In Takoma Park poverty rates for single-female families are higher than the overall rate at `r pull_femfam_pov_tp_pct`%, but not at a statistically-significant level; however, rates in the larger sample of Montgomery County and Maryland are higher, suggesting that poverty-rates for single-female families may actually be higher in Takoma Park than the overall level but not show up due to the sample size.
+Compared to the City's household poverty rate of `r pull_house_pov`%, poverty rates for female nonfamily households (`r pull_fem_pov_tp_pct`%) and male nonfamily households (`r pull_male_pov_tp_pct`%) are higher at a statistically significant level, and poverty rates for married couples are lower (`r pull_marr_pov_tp_pct`%). Poverty rates for female and male nonfamily households are also significantly higher than Montgomery County (`r pull_fem_pov_mont_pct`% and `r pull_male_pov_mont_pct`% respectively), and poverty rates for single-female family households (`r pull_femfam_pov_tp_pct`% in Takoma Park) are lower than Maryland (`r pull_femfam_pov_md`%).
 
 #### Poverty by family-type
 
@@ -6538,11 +6681,11 @@ plot_race_age_poverty
 
 ```
 
-*Note: Due to the low number of NHPI and AIAN residents in Takoma Park, they are omitted from the above chart.*
+*Note: Due to the low number of NHPI residents in Takoma Park, they are omitted from the above chart.*
 
 #### Poverty by sex and age
 
-**Except for ages 0 to 17 and 45-54 in Takoma Park, estimates of womens' poverty rates exceed men.** No differences appear as statistically significant in the data for Takoma Park; however, differences in the larger-samples of Montgomery County and Maryland show up as statistically significant in all age-groups 18 and over.
+**No differences in poverty rates appear as statistically significant in the data for Takoma Park, except poverty rates for women 60 and older exceed men;** however, differences in the larger-samples of Montgomery County and Maryland show up as statistically significant in all age-groups 18 and over.
 
 
 ```{r plot sex age poverty}
@@ -6574,7 +6717,7 @@ plots_pov_sex_age
 
 #### Unemployment {-}
 
-**The total number of unemployed residents in Takoma Park is `r pull_tp_unemploy_num`, for an unemployment rate of `r pull_tp_unemploy`%.** The rate estimate is higher than Montgomery County's `r pull_mont_unemploy`% or Maryland's `r pull_md_unemploy`%, but the difference is not statistically significant at a 90% confidence-level (meaning we cannot conclude that Takoma Park's unemployment rate is actually different from Montgomery County's or Maryland's).
+**The total number of under-65 unemployed residents in Takoma Park is `r pull_tp_unemploy_num`, for an unemployment rate of `r pull_tp_unemploy`%.** The rate estimate is higher than Montgomery County's `r pull_mont_unemploy`% or Maryland's `r pull_md_unemploy`%, but the difference is not statistically significant at a 90% confidence-level (meaning we cannot conclude that Takoma Park's unemployment rate is actually different from Montgomery County's or Maryland's).
 
 ```{r plot unemployment overall}
 
@@ -6604,12 +6747,12 @@ plot_race_unemploy
 
 ```
 
-*Note: Due to the low number of NHPI and AIAN residents in Takoma Park, they are omitted from the above chart.*
+*Note: Due to the low number of NHPI residents in Takoma Park, they are omitted from the above chart.*
 
 
 #### Unemployment by age {-}
 
-**As with Montgomery County and Maryland, unemployment rates in Takoma Park generally decline with age, with a high estimate in Takoma Park of `r pull_tp_unemploy_2021`% at 20-21 and a low of 0 percent for people aged 60 to 69.** People aged 45 to 54 have a statistically-significant, higher unemployment rate in Takoma Park than Montgomery County or Maryland at `r pull_tp_unemploy_4554`% compared to `r pull_mont_unemploy_4554`% in Montgomery County and `r pull_md_unemploy_4554`% in Maryland.
+**As with Montgomery County and Maryland, unemployment rates in Takoma Park generally decline with age, with a high estimate in Takoma Park of `r pull_tp_unemploy_2021`% at 20-21 and a low of 0 percent for people aged 60 to 61 and 65-69.** People aged 45 to 54 have a statistically-significant, higher unemployment rate in Takoma Park than Montgomery County or Maryland at `r pull_tp_unemploy_4554`% compared to `r pull_mont_unemploy_4554`% in Montgomery County and `r pull_md_unemploy_4554`% in Maryland.
 
 ```{r plot unemploy age}
 
@@ -6665,7 +6808,7 @@ subplot(sub_pct_unemploy, sub_tot_unemploy, nrows = 2, shareX = T) %>%
 
 #### *Internet access*
 
-**`r pull_tp_broadband`% of Takoma Park residents have access to broadband internet, a lower share than Montgomery County's `r pull_mont_broadband`%.** Of those without broadband access, `r pull_tp_noint`% have a computer but no internet, and `r pull_tp_nocomp`% have no computer.
+**`r pull_tp_broadband`% of Takoma Park residents have access to broadband internet.** Of those without broadband access, `r pull_tp_noint`% have a computer but no internet, and `r pull_tp_nocomp`% have no computer.
 
 `r text_computer_race_summary`
 
@@ -6727,7 +6870,7 @@ plot_race_educ
 
 ```
 
-*Note: To avoid misrepresenting percentage data, the above graph is limited to racial/ethnic groups with more than 30 residents in Takoma Park, omitting American Indians and Alaska Natives (30 residents, with a margin of error of 29 residents), and Native Hawaiian and Other Pacific Islanders (0 residents).*
+*Note: To avoid misrepresenting percentage data, the above graph is limited to racial/ethnic groups with more than 30 residents in Takoma Park, omitting and Native Hawaiian and Other Pacific Islanders (0 residents).*
 
 `r text_race_educ_compare`
 
@@ -6750,7 +6893,7 @@ sub_race_compare_educ
 
 #### Internet access overall
 
-**`r pull_tp_noint_tot` total and `r pull_tp_noint`% of Takoma Park residents have a computer but no internet access, and `r pull_tp_nocomp_tot` total and `r pull_tp_nocomp`% more residents do not have a computer.** Rates of internet and computer access mostly are similar to Montgomery County and Maryland, except that the percent of residents without a computer exceeds Montgomery County's share of `r pull_mont_nocomp`%, and the `r pull_tp_broadband`% of Takoma Park residents with broadband internet falls below Montgomery County's share of `r pull_mont_broadband`%.
+**`r pull_tp_noint_tot` total and `r pull_tp_noint`% of Takoma Park residents have a computer but no internet access, and `r pull_tp_nocomp_tot` total and `r pull_tp_nocomp`% more residents do not have a computer.** Rates of internet and computer access mostly are similar to Montgomery County and Maryland, except that the percent of residents without a computer exceeds Maryland's share of `r pull_md_nocomp`%.
 
 ```{r plot computer}
 plot_ly(comp,
@@ -6786,7 +6929,7 @@ plot_computer_race
 
 ```
 
-*Note: Due to the low number of NHPI and AIAN residents in Takoma Park, they are omitted from the above chart.*
+*Note: Due to the low number of NHPI residents in Takoma Park, they are omitted from the above chart.*
 
 `r text_computer_compare_race`
 
@@ -6796,7 +6939,7 @@ plot_int_access_race_comp
 
 ```
 
-*Note: Due to the low number of NHPI and AIAN residents in Takoma Park, they are omitted from the above chart.*
+*Note: Due to the low number of NHPI residents in Takoma Park, they are omitted from the above chart.*
 
 
 
@@ -6919,7 +7062,7 @@ plot_ly(health_insur_overall,
         y = ~ pct_health,
         color = ~ health_new,
         text = ~ glue("{health_new}:
-        {pct_health}"),
+        {round(pct_health, 0)}%"),
         textfont = list(color = "black"),
         textposition = "inside",
         hovertext = ~ glue("Margin of error: {pct_moe}%
@@ -6938,7 +7081,7 @@ plot_ly(health_insur_overall,
 
 **By age-range, younger Takoma Park residents are most-likely to either be on Medicaid or other income-based programs.** `r pull_means_under18_pct`% of residents under 19 (`r pull_means_under18_tot` total) are on Medicaid or other means-tested programs, compared to `r pull_means_1934_pct`% of residents aged 19-34 (`r pull_means_1934_tot` total), `r pull_means_3564_pct`% of residents aged 35-64 (`r pull_means_3564_pct` total), and `r pull_means_65_pct`% of residents aged 65 and older on both Medicaid and Medicare (`r pull_means_65_tot` total).
 
-**Compared to other age groups, 19-64 year old residents are most likely to not have any insurance.** `r pull_none_1934_pct`% of 19-34 year-old residents (`r pull_none_1934_tot` total) and `r pull_none_3564_pct`% of 35-64 year old residents (`r pull_none_3564_tot` total) have no insurance, followed by `r pull_none_under18_pct`% of under-19 residents (`r pull_none_under18_tot` total).
+**Compared to other age groups, 19-64 year old residents are most likely to not have any insurance.** `r pull_none_1934_pct`% of 19-34 year-old residents (`r pull_none_1934_tot` total) and `r pull_none_3564_pct`% of 35-64 year old residents (`r pull_none_3564_tot %>% tpfuncts::commafy()` total) have no insurance, followed by `r pull_none_under18_pct`% of under-19 residents (`r pull_none_under18_tot` total).
 
 ```{r plot health age}
 
@@ -6985,7 +7128,7 @@ subplot(plot_health_under19,
 
 ```
 
-**Compared to Montgomery County and Maryland, a higher share of Takoma Park residents in all age-groups either don't have insurance, or are on Medicaid or another income-based health insurance program** (although some are within the margin of error of Maryland). In particular, the share of Takoma Park residents over 65 that are on Medicaid and Medicare (`r pull_means_65_pct`%) more than doubles the share of Maryland (`r pull_means_65_pct_md`%) and Montgomery County (`r pull_means_65_pct_mont`%). Other statistically-significant differences include that in Takoma Park, `r pull_none_3564_pct`% of 35-64 year olds have no health insurance compared to `r pull_none_3564_pct_md`% of Maryland residents and `r pull_none_3564_pct_mont`% of Montgomery County residents; and `r pull_means_1934_pct`% of 19-34 year olds are on income-based health insurance compared to `r pull_means_1934_pct_mont`% in Montgomery County and `r pull_means_1934_pct_md`% in Maryland. 
+**Compared to Montgomery County and Maryland, a higher share of Takoma Park residents in all age-groups except under 19 either don't have insurance, or are on Medicaid or another income-based health insurance program** (although some are within the margin of error of Maryland). In particular, the share of Takoma Park residents over 65 that are on Medicaid and Medicare (`r pull_means_65_pct`%) more than doubles the share of Maryland (`r pull_means_65_pct_md`%) and Montgomery County (`r pull_means_65_pct_mont`%). Other statistically-significant differences include that in Takoma Park, `r pull_none_3564_pct`% of 35-64 year olds have no health insurance compared to `r pull_none_3564_pct_md`% of Maryland residents and `r pull_none_3564_pct_mont`% of Montgomery County residents; and `r pull_means_1934_pct`% of 19-34 year olds are on income-based health insurance compared to `r pull_means_1934_pct_mont`% in Montgomery County. 
 
 #### Health insurance by race
 
@@ -6998,7 +7141,7 @@ plot_health_race_noinsur
 
 ```
 
-*Note: Due to the low number of NHPI and AIAN residents in Takoma Park, they are omitted from the above chart.*
+*Note: Due to the low number of NHPI residents in Takoma Park, they are omitted from the above chart.*
 
 `r text_health_race_noinsur_compare`
 
@@ -7011,7 +7154,7 @@ plot_race_age_health
 
 ```
 
-*Note: Due to the low number of NHPI and AIAN residents in Takoma Park, they are omitted from the above chart.*
+*Note: Due to the low number of NHPI residents in Takoma Park, they are omitted from the above chart.*
 
 
 ## Methodology {-}
@@ -7020,7 +7163,7 @@ plot_race_age_health
 
 #### Data sources
 
-This webpage displays selected data from the 2015-2019 American Community Survey. The webpage was produced using RMarkdown. Data is downloaded from the Census using R's tidycensus package. Block-group data in the racial demographics map as well as the shapefile come from NHGIS, cited below. Data will be updated periodically (potentially with additional visualizations), and with 2016-2020 data once the newest version of the American Community Survey is released. Updates are described at the bottom of the page.
+This webpage displays selected data from the 2016-2020 American Community Survey. The webpage was produced using RMarkdown. Data is downloaded from the Census using R's tidycensus package. Block-group data in the racial demographics map as well as the shapefile come from NHGIS, cited below. Data will be updated periodically (potentially with additional visualizations), and with 2016-2020 data once the newest version of the American Community Survey is released. Updates are described at the bottom of the page.
 
 #### Organization of race/ethnicity data
 
@@ -7036,7 +7179,7 @@ The ACS survey asks residents whether they are one or multiple of the following 
 
 #### Households and families defined
 
-[The Census defines](https://www.census.gov/programs-surveys/cps/technical-documentation/subject-definitions.html#familyhousehold) a household as all people in a housing unit. A housing unit is a separate living quarters, meaning occupants have a dedicated space or structure for them. A single-family house is a housing unit, one apartment in an apartment building is a housing unit, and one room in a grouphouse is a housing unit. A householder is the person renting or owning a housing unit (in the case of a couple, it could be either of the two).
+[The Census defines](https://www.census.gov/programs-surveys/cps/technical-documentation/subject-definitions.html#familyhousehold) a household as all people in a housing unit. A housing unit is a separate living quarters, meaning occupants have a dedicated space or structure for them. A single-family house is a housing unit, and one apartment in an apartment building is a housing unit. A householder is the person renting or owning a housing unit (in the case of a couple, it could be either of the two).
 
 #### Statistical significance and margins of error
 
@@ -7063,6 +7206,7 @@ Code used to produce this webpage and pre-process the data can be found on the [
 
 **List of updates:**
 
+- **08/25/2022**: Update charts and text with 2016-2020 ACS data.
 - *11/18/2021:* Changed graph width options so resizes to screen and more mobile-friendly.
 - *11/17/2021:* Webpage public.
 - *9/15/2021:* Some language changes, esp. around statistical significance. Added disability by type graphs. Added poverty by sex graphs.

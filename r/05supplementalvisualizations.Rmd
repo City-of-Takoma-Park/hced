@@ -39,6 +39,49 @@ library(plotlywrappers)
 
 pal_race <- brewer.pal(10, "Accent")[c(-4, -5)]
 
+income_recode <- function(df, income_col, new_income = "income_recode", rent_own = F){
+
+  change_income <- function(string){
+    gsub("(,000)|(,999)", "k", string) %>%
+      gsub("\\$", "", .) %>%
+      gsub(" to ", "-", x =  .) %>%
+      gsub("Less than ", "< ", x =  .) %>%
+      ifelse(grepl(" or more", ., ignore.case = T), paste0("> ", . ), .) %>%
+      gsub(" or more", "", x = .) %>%
+      gsub(":", "", .)
+  }
+
+  df <- df %>%
+    dplyr::mutate(!!sym(new_income) := change_income({{income_col}}))
+
+  factor_vector <- dplyr::pull(df, !!sym(new_income)) %>% unique
+
+  factor_vector_big <- grep(">", factor_vector, value = T)
+  factor_vector_small <- grep("<", factor_vector, value = T)
+
+  factor_vector <- c(factor_vector_small,
+                     factor_vector[!factor_vector %in% c(factor_vector_small, factor_vector_big)],
+                     factor_vector_big)
+
+  df <- df %>%
+    mutate(!!sym(new_income) := factor(!!sym(new_income), factor_vector, factor_vector))
+
+  if (rent_own){
+
+    rent_own_replacer <- function(string){
+      recode(string, "100k-149k" = "Owner: 100k-150k \n Renter: > 100k",
+             "> 100k" = "Owner: 100k-150k \n Renter: > 100k")
+    }
+
+    df <- df %>%
+      dplyr::mutate(!!sym(new_income) := rent_own_replacer(!!sym(new_income)))
+  }
+
+  df
+
+}
+
+
 
 # function to generate graphs of a specific race by location
 race_breakout_gen <- function(df, 
@@ -86,6 +129,13 @@ race_breakout_gen <- function(df,
                         range = range))
   # showgrid = FALSE))
 }
+
+data_binder <- function(file_root){
+  # browser()
+  acsprocess::data_binder(file_root = file_root, dir_root = "./data/output_data/acs5_2019/tp_spec/") %>%
+    name_num_formatter()
+}
+
 
 ```
 
@@ -371,89 +421,89 @@ pull_tp_male_roommate_pct <- pull_family_housppl(c("Takoma", "^male", "roommate"
 ```
 
 
-```{r family poverty race}
+<!-- ```{r family poverty race} -->
 
-fam_pov_race <- data_binder("family_poverty_race") %>%
-  filter(!grepl("white alone householder", race)) %>%
-  mutate(race = gsub(pattern = " householder", "", race)) %>%
-  race_recode(race_col = race) %>%
-  name_num_formatter() %>%
-  recode_houstype(fam_type) %>%
-  recode_fam_occupants() %>%
-  recode_child_age() %>%
-  mutate(typ_child = glue("{fam_type}: {tolower(fam_occupants)}"))
-# 
-# fam_pov_race_process <- fam_pov_race %>%
-#   process_df_tp(
-#     group_cols = c("location", "race", "typ_child", "pov_status"),
-#     overall_cols = c("location", "race", "typ_child"),
-#     name_col = "pov_race"
-#   ) %>%
-#   filter(!race %in% tp_race_cats,
-#          grepl("below ", pov_status),
-#   )
-# 
-# # plot_fam_pov_race_tp_pct <- plot_ly(
-# #   filter(fam_pov_race_process, grepl("Takoma", location)),
-# #   x = ~ race,
-# #   y = ~ pct_pov_race,
-# #   color = ~ typ_child,
-# #   name = ~ typ_child,
-# #   legendgroup = ~ typ_child,
-# #   text = ~ glue("Total: {pov_race_est}
-# #                 Margin of error: {pct_moe}%
-# #                 Significant differences: {signif_check}")
-# # )
-# 
-# plot_fam_pov_race_tp_tot <- plot_ly(
-#   filter(fam_pov_race_process, grepl("Takoma", location)),
-#   x = ~ race,
-#   y = ~ pov_race_est,
-#   color = ~ typ_child,
-#   name = ~ typ_child,
-#   legendgroup = ~ typ_child,
-#   textposition = "inside",
-#   textfont = list(color = "black",
-#                   opacity = 0.8),
-#   # text = ~ glue("{pct_pov_race}%\npoverty"),
-#   hovertext = ~ glue("Percent poverty: {pct_pov_race}%
-#   Race/family type total: {tot_est %>% commafy}
-#   Margin of error: {pov_race_moe}
-#   Significant differences: {signif_check}")) %>%
-#   layout(
-#     # barmode = "stack",
-#          title = "Takoma Park families in poverty by race",
-#          xaxis = list(title = ""),
-#          yaxis = list(title = "Families in poverty"))
-# 
-# gen_plot_fam_pov_race_loc <- function(race_val, showleg){
-#   df <- fam_pov_race_process %>%
-#     filter(grepl(race_val, race)) %>%
-#     mutate(typ_child = gsub(": ", "\n", typ_child))
-# 
-#   plot_ly(df,
-#           x = ~ location,
-#           y = ~ pct_pov_race,
-#           name = ~ typ_child,
-#           hovertext = ~ glue("Total: {pov_race_est %>% commafy}
-#                              Margin of error: {pov_race_moe}%
-#                              Race/family-type total: {tot_est}
-#                              Significant differences: {signif_check}"),
-#           color = ~ typ_child,
-#           type = "bar",
-#           showlegend= showleg,
-#           legendgroup = ~ typ_child) %>%
-#     layout(xaxis = list(title = ""),
-#            yaxis = list(title = "Poverty rate",
-#                         range = c(0, 40)),
-#            title = "") %>%
-#     subplot_title(race_val)
-# 
-# }
+<!-- fam_pov_race <- data_binder("family_poverty_race") %>% -->
+<!--   filter(!grepl("white alone householder", race)) %>% -->
+<!--   mutate(race = gsub(pattern = " householder", "", race)) %>% -->
+<!--   race_recode(race_col = race) %>% -->
+<!--   name_num_formatter() %>% -->
+<!--   recode_houstype(fam_type) %>% -->
+<!--   recode_fam_occupants() %>% -->
+<!--   recode_child_age() %>% -->
+<!--   mutate(typ_child = glue("{fam_type}: {tolower(fam_occupants)}")) -->
+<!-- #  -->
+<!-- # fam_pov_race_process <- fam_pov_race %>% -->
+<!-- #   process_df_tp( -->
+<!-- #     group_cols = c("location", "race", "typ_child", "pov_status"), -->
+<!-- #     overall_cols = c("location", "race", "typ_child"), -->
+<!-- #     name_col = "pov_race" -->
+<!-- #   ) %>% -->
+<!-- #   filter(!race %in% tp_race_cats, -->
+<!-- #          grepl("below ", pov_status), -->
+<!-- #   ) -->
+<!-- #  -->
+<!-- # # plot_fam_pov_race_tp_pct <- plot_ly( -->
+<!-- # #   filter(fam_pov_race_process, grepl("Takoma", location)), -->
+<!-- # #   x = ~ race, -->
+<!-- # #   y = ~ pct_pov_race, -->
+<!-- # #   color = ~ typ_child, -->
+<!-- # #   name = ~ typ_child, -->
+<!-- # #   legendgroup = ~ typ_child, -->
+<!-- # #   text = ~ glue("Total: {pov_race_est} -->
+<!-- # #                 Margin of error: {pct_moe}% -->
+<!-- # #                 Significant differences: {signif_check}") -->
+<!-- # # ) -->
+<!-- #  -->
+<!-- # plot_fam_pov_race_tp_tot <- plot_ly( -->
+<!-- #   filter(fam_pov_race_process, grepl("Takoma", location)), -->
+<!-- #   x = ~ race, -->
+<!-- #   y = ~ pov_race_est, -->
+<!-- #   color = ~ typ_child, -->
+<!-- #   name = ~ typ_child, -->
+<!-- #   legendgroup = ~ typ_child, -->
+<!-- #   textposition = "inside", -->
+<!-- #   textfont = list(color = "black", -->
+<!-- #                   opacity = 0.8), -->
+<!-- #   # text = ~ glue("{pct_pov_race}%\npoverty"), -->
+<!-- #   hovertext = ~ glue("Percent poverty: {pct_pov_race}% -->
+<!-- #   Race/family type total: {tot_est %>% commafy} -->
+<!-- #   Margin of error: {pov_race_moe} -->
+<!-- #   Significant differences: {signif_check}")) %>% -->
+<!-- #   layout( -->
+<!-- #     # barmode = "stack", -->
+<!-- #          title = "Takoma Park families in poverty by race", -->
+<!-- #          xaxis = list(title = ""), -->
+<!-- #          yaxis = list(title = "Families in poverty")) -->
+<!-- #  -->
+<!-- # gen_plot_fam_pov_race_loc <- function(race_val, showleg){ -->
+<!-- #   df <- fam_pov_race_process %>% -->
+<!-- #     filter(grepl(race_val, race)) %>% -->
+<!-- #     mutate(typ_child = gsub(": ", "\n", typ_child)) -->
+<!-- #  -->
+<!-- #   plot_ly(df, -->
+<!-- #           x = ~ location, -->
+<!-- #           y = ~ pct_pov_race, -->
+<!-- #           name = ~ typ_child, -->
+<!-- #           hovertext = ~ glue("Total: {pov_race_est %>% commafy} -->
+<!-- #                              Margin of error: {pov_race_moe}% -->
+<!-- #                              Race/family-type total: {tot_est} -->
+<!-- #                              Significant differences: {signif_check}"), -->
+<!-- #           color = ~ typ_child, -->
+<!-- #           type = "bar", -->
+<!-- #           showlegend= showleg, -->
+<!-- #           legendgroup = ~ typ_child) %>% -->
+<!-- #     layout(xaxis = list(title = ""), -->
+<!-- #            yaxis = list(title = "Poverty rate", -->
+<!-- #                         range = c(0, 40)), -->
+<!-- #            title = "") %>% -->
+<!-- #     subplot_title(race_val) -->
+<!-- #  -->
+<!-- # } -->
 
 
 
-```
+<!-- ``` -->
 
 
 <!-- ```{r plot family poverty race} -->
@@ -657,6 +707,39 @@ plot_ly(housegrp,
 
 #### Table of contents
 
+### Veteran Status
+
+```{r read visualize vet age}
+
+agevet_data <- data_binder("vetage") %>%
+  age_recode(age)
+
+plot_agevet_tp_tot <- plot_ly(agevet_data %>%
+          filter(grepl("Takoma", location) & grepl("^Veteran", veteran)),
+        x = ~ age_new,
+        y = ~ agevet_est,
+        color = ~ age_new) %>%
+  subplot_title("Total")
+
+plot_agevet_tp_pct <- plot_ly(agevet_data %>%
+          filter(grepl("Takoma", location) & grepl("^Veteran", veteran)),
+        x = ~ age_new,
+        y = ~ pct_agevet,
+        showlegend = F,
+        type = "scatter",
+        mode = "line+marker") %>%
+  subplot_title("Percent age-group")
+
+plots_agevet <- subplot(plot_agevet_tp_tot,
+        plot_agevet_tp_pct,
+        nrows = 2, shareX  = T) %>%
+  layout(xaxis = list(title = "Age"),
+         yaxis = list(title = ""),
+         title = "Takoma Park Veterans by Age")
+
+plotly::save_image(plots_agevet, file = "./plots_agevet.png")
+
+```
 
 
 ## Race and Ethnicity {.tabset .tabset-pills}
@@ -671,6 +754,241 @@ plot_ly(housegrp,
 
 #### Table of contents
 
+#### Tenure by age
+
+```{r tenure age}
+
+age_tenure <- data_binder("tenure_age") %>%
+  name_num_formatter() %>%
+  # est_moe_derive(c("location", "age"),name_col = "locage") %>%
+  # mutate(pct_ageten = pct_round(estimate, locage_est)) %>%
+  #     dplyr::rename(pct_age_moe = pct_moe) %>%
+  # derive_pct_est_moe(proportion_col = "pct_ageten", aggregate_est = "locage_est", "locage_moe") %>%
+  # est_moe_derive(group_cols = c("location", "age", "tenure"), name_col = "ageten") %>%
+  signif_mont_tp(join_col = c("age", "tenure"), name_pct = pct_ageten, moe_pct = pct_moe) %>%
+  mutate(age = gsub("Householder ", "", age),
+         tenure = gsub(" occupied:", "", tenure)) %>%
+  age_recode(age)
+
+
+plot_ly(age_tenure %>%
+          filter(grepl("Takoma", location)),
+        x = ~ age_new,
+        color = ~ tenure,
+        name = ~ tenure,
+        y = ~ estimate,
+        type = "bar") %>%
+  layout(xaxis = list(title = "Age"),
+         yaxis = list(title = "Households"),
+         title = "Home-ownership by age")
+
+plot_ly(age_tenure %>%
+          filter(grepl("Takoma", location)),
+        x = ~ age_new,
+        y = ~ estimate,
+        name = ~ tenure,
+        textposition = "inside",
+        text = ~ glue("{estimate %>% commafy},
+                      {pct_ageten}%"),
+        textfont = list(color = "black"),
+        color = ~ tenure,
+        type = "bar") %>%
+  layout(barmode = "stack",
+         title = "Homeownership by age",
+         yaxis = list(title = "Percent group"),
+         xaxis = list(title = "Ownership-status"))
+
+```
+
+#### Cost-burden by age
+
+```{r cost age}
+
+age_cost <- data_binder("tenure_costburden_age") %>%
+  name_num_formatter() %>%
+  filter(cost_burden != "Not computed") %>%
+  est_moe_derive(group_cols = c("name","tenure", "age"), name_col = "newagetot") %>%
+  est_moe_derive(group_cols = c("name","tenure"), name_col = "tenuretot") %>%
+  mutate(pct_hous_age = round(estimate* 100 / newagetot_est , 2)) %>%
+  derive_pct_est_moe("pct_hous_age", "newagetot_est", "newagetot_moe") %>%
+  age_recode(age) %>%
+    mutate(age_new = gsub("Householder ", "", age_new)) %>%
+
+  mutate(cost_burden_new = gsub(" to ", "-", cost_burden) %>%
+           gsub(" percent", "%", .) %>%
+           gsub(" or more", "+", .) %>%
+           gsub("Less than ", "< ", .))
+
+plot_age_ownercosts <- plot_ly(filter(age_cost, grepl("Takoma", location) & grepl("Owner", tenure)), 
+        x = ~ age_new,
+        text = ~ glue("{estimate %>% commafy},
+                      {pct_hous_age %>% round}%"),
+        textposition = "inside",
+        textfont = list(color = "black"),
+        y = ~ estimate, 
+        legendgroup = ~ cost_burden_new,
+        color = ~ cost_burden_new,
+        showlegend = F,
+        colors = "YlOrRd",
+        name = ~ cost_burden_new) %>%
+  layout(title = "Percent of household income spent on mortgage/rent costs by age",
+         xaxis = list(title = "Age group"),
+         yaxis = list(title = "Total households")) %>%
+  subplot_title("Owners")
+
+plot_age_rentercosts <- plot_ly(filter(age_cost, grepl("Takoma", location) & grepl("Renter", tenure)), 
+        x = ~ age_new,
+        text = ~ glue("{estimate %>% commafy},
+                      {pct_hous_age %>% round}%"),
+        textposition = "inside",
+        textfont = list(color = "black"),
+        legendgroup =  ~ cost_burden_new,
+        color = ~ cost_burden_new,
+        y = ~ estimate,
+        colors = "YlOrRd",
+        name = ~ cost_burden_new) %>%
+  layout(title = "Households by percent of household income spent on mortgage/rent costs and age",
+         xaxis = list(title = "Age group"),
+         barmode = "stack",
+         yaxis = list(title = "Total households",
+                      tickvals = seq(0, 2500, by = 125))) %>%
+  subplot_title("Renters")
+
+subplot(plot_age_ownercosts, plot_age_rentercosts, shareY = T, nrows = 1)
+
+
+
+
+plot_age_65plus_ownercosts <- plot_ly(filter(age_cost, grepl("Takoma", location) & grepl("Owner", tenure)  & grepl("65", age)), 
+        x = ~ cost_burden_new,
+        text = ~ glue("{estimate %>% commafy},
+                      {pct_hous_age %>% round}%"),
+        textposition = "inside",
+        textfont = list(color = "black"),
+        y = ~ estimate, 
+        legendgroup = ~ cost_burden_new,
+        color = ~ cost_burden_new,
+        showlegend = F,
+        colors = "YlOrRd",
+        name = ~ cost_burden_new) %>%
+  layout(title = "Percent of household income spent on mortgage/rent costs by age",
+         xaxis = list(title = "Age group"),
+         yaxis = list(title = "Total households")) %>%
+  subplot_title("Owners")
+
+plot_age_65plus_rentercosts <- plot_ly(filter(age_cost, grepl("Takoma", location) & grepl("Renter", tenure) & grepl("65", age)), 
+        x = ~ cost_burden_new,
+        text = ~ glue("{estimate %>% commafy},
+                      {pct_hous_age %>% round}%"),
+        textposition = "inside",
+        textfont = list(color = "black"),
+        legendgroup =  ~ cost_burden_new,
+        color = ~ cost_burden_new,
+        y = ~ estimate,
+        colors = "YlOrRd",
+        name = ~ cost_burden_new) %>%
+  layout(title = "65+ households by percent of household income spent on mortgage/rent costs",
+         xaxis = list(title = "Age group"),
+         yaxis = list(title = "Total households",
+                      tickvals = seq(0, 425, by = 50))) %>%
+  subplot_title("Renters")
+
+subplot(plot_age_65plus_ownercosts, plot_age_65plus_rentercosts, shareY = T, nrows = 1)
+
+
+```
+
+#### Age by Tenure by Household Type
+
+```{r age tenure house}
+
+recode_livalone <- function(df, colname = livalone, newcol = livalone_new){
+  vec_order <- c("Married-couple",
+                 "Female living with\nfamily",
+                 "Male living with\nfamily",
+                 "Householder living with\nnon-relatives",
+                 "Householder living\nalone")
+  
+  df %>%
+    mutate({{newcol}} := case_when(
+               grepl("Married-couple", {{colname}}) ~ vec_order[1],
+               grepl("not living alone", {{colname}}) ~ vec_order[4],
+               grepl("living alone", {{colname}}) ~ vec_order[5],
+               grepl("Female householder", {{colname}}) ~ vec_order[2],
+               grepl("Male householder", {{colname}}) ~ vec_order[3]),
+           {{newcol}} := factor({{newcol}}, vec_order, vec_order))
+}
+
+ageten_fam <- data_binder("tenure_family_age") %>%
+  mutate(houseage = gsub("Householder ", "", houseage)) %>%
+  age_recode(houseage) %>%
+  est_moe_derive(group_cols = c("name", "houseage")) %>%
+    est_moe_derive(group_cols = c("name", "houseage", "tenure")) %>%
+  derive_pct_est_moe(proportion_col = "pct_age_fam", aggregate_est = "name_houseage_est", "name_houseage_moe") %>%
+  rename(pct_moe_age_fam =  pct_moe) %>%
+    derive_pct_est_moe(proportion_col = "pct_age_fam_ten", aggregate_est = "name_houseage_tenure_est", "name_houseage_tenure_moe") %>%
+  name_num_formatter() %>%
+  recode_livalone()
+
+tpfilt <- function(df, col = name) {
+  df %>%
+    filter(grepl("Takoma", {{col}}))
+}
+
+filt65 <- function(df, col = age_new){
+  df %>%
+    filter(grepl("65", {{col}}))
+}
+
+tenfilt <- function(df, type = "Owner", col = tenure){
+  df %>%
+    filter(grepl(type, {{col}}, ignore.case = T))
+}
+
+filttp65 <- function(df, agecol = age_new, placecol = name){
+  df %>%
+    tpfilt({{placecol}}) %>%
+    filt65({{agecol}})
+}
+
+plot_tp_owner_age_fam <- plot_ly(ageten_fam %>%
+          tpfilt %>% 
+          tenfilt(),
+        x = ~ livalone_new,
+        y = ~ estimate, 
+        color = ~ age_new,
+        # text = ~ glue("{pct_age_fam}%"),
+        legendgroup = ~ age_new,
+        type = "bar",
+         text = ~ glue("{pct_age_fam_ten %>% round}%"),
+        textposition = "inside",
+        textfont = list(color = "Black"),
+        name = ~ age_new) %>%
+  subplot_title("Owners")
+
+plot_tp_renter_age_fam <- plot_ly(ageten_fam %>%
+          tpfilt %>% 
+          tenfilt(type = "Renter"),
+        x = ~ livalone_new,
+        y = ~ estimate, 
+        showlegend = F,
+        text = ~ glue("{pct_age_fam_ten %>% round}%"),
+        textposition = "inside",
+        textfont = list(color = "Black"),
+        legendgroup = ~ age_new,
+        color = ~ age_new,
+        type = "bar",
+        name = ~ age_new) %>%
+  subplot_title("Renters")
+
+
+subplot(plot_tp_owner_age_fam, plot_tp_renter_age_fam, nrows = 1, shareY = T) %>%
+  layout(xaxis = list(title = "Family status"),
+         yaxis = list(title = "Households"),
+         title = "Households by home-ownership and living situation")
+
+
+```
 
 ## Poverty, employment, and income {- .tabset .tabset-pills}
 
@@ -680,19 +998,161 @@ plot_ly(housegrp,
 
 #### Income-level by age
 
+```{r inc age}
+
+incage <- data_binder("age_income") %>%
+  name_num_formatter() %>%
+  mutate(age = gsub("Householder ", "", age)) %>%
+  mutate(pct_agehous = pct_round(estimate, agehous)) %>%
+  derive_pct_est_moe("pct_agehous", "agehous", "agehous_moe") %>%
+  group_by(name, age) %>%
+    income_recode(income_col = income) %>%
+  arrange(income_recode) %>%
+  mutate(cuml_agehous = cumsum(estimate),
+         cuml_agehous_pct = pct_round(cuml_agehous, agehous)) %>%
+    ungroup() %>%
+  signif_mont_tp(join_col = c("age", "income"), name_pct = pct_agehous, moe_pct = pct_moe) %>%
+  age_recode(age)
+
+plot_ly(incage %>%
+          filter(grepl("Takoma", location)),
+        x = ~ age_new,
+        y = ~ pct_agehous,
+        text = ~ glue("{income_recode}
+                      {pct_agehous}%"),
+        textposition = "inside",
+        textfont = list(color = "black"),
+        color = ~ income_recode,
+        type = "bar",
+        colors = "PiYG",
+        name = ~ income_recode) %>%
+  layout(barmode = "stack",
+         xaxis = list(title = "Age"),
+         yaxis = list(title = "Percent age-group",
+                      tickvals = seq(0, 100, 10)),
+         title = "Households by age-group and income")
+
+plot_ly(incage %>%
+          filter(grepl("Takoma", location)),
+        x = ~ age_new,
+        y = ~ estimate,
+        text = ~ glue("{pct_agehous}%"),
+        textposition = "inside",
+        textfont = list(color = "black"),
+        color = ~ income_recode,
+        type = "bar",
+        name = ~ income_recode)
+
+plot_ly(incage %>%
+          filter(grepl("Takoma", location) & grepl("65", age_new)),
+        x = ~ income_recode,
+        y = ~ estimate,
+        text = ~ glue("{pct_agehous %>% round()}%"),
+        textposition = "inside",
+        textfont = list(color = "black"),
+        color = ~ income_recode,
+        type = "bar",
+        name = ~ income_recode) %>%
+  layout(xaxis = list(title = "Income"),
+         yaxis = list(title = "Households"),
+         title = "Total 65+ households by income")
 
 
+plot_ly(incage %>%
+          filter(grepl("Takoma", location)),
+        x = ~ income_recode,
+        y = ~ cuml_agehous,
+        text = ~ glue("{cuml_agehous_pct %>% round()}%
+                      
+                      
+                      "),
+        textposition = "above",
+        textfont = list(color = "black"),
+        color = ~ age_new,
+        name = ~ age_new,
+        type = "scatter",
+        mode = "lines+markers") %>%
+  layout(xaxis = list(title = "Income"),
+         yaxis = list(title = "Cumulative Households"),
+         title = "Cumulative 65+ households by income")
+
+
+```
+
+
+#### Income by cost-burden
+
+```{r inc cost burden}
+
+renter_income_num_all <- data_binder("renter_income_num")
+
+owner_income_num_all <- data_binder("owner_income_num")
+
+owner_income_num_processed <- owner_income_num %>%
+  group_by(name) %>%
+  mutate(tenure = "Owner",
+         cum_est = cumsum(estimate),
+         cumul_pct = cumsum(pct_homeowners)) %>%
+  rename(pct_all = pct_homeowners) %>%
+  income_recode(household_income, rent_own = T)
+
+renter_income_num_processed <- renter_income_num %>%
+  group_by(name) %>%
+  income_recode(household_income, rent_own = T) %>%
+  mutate(tenure = "Renter",
+         cum_est = cumsum(estimate),
+         cumul_pct = cumsum(pct_renters)) %>%
+  rename(pct_all = pct_renters)
+
+rent_own_data <- rbind(owner_income_num_processed, renter_income_num_processed) %>%
+  mutate(across(where(is.character), ~ gsub(":", "", .x)))
+
+pull_rent_own_income <- pull_creator(rent_own_data, c("income_recode", "tenure"))
+
+pull_own_greater150 <- pull_rent_own_income(c("> 150k", "own"), "pct_all")
+
+pull_rent_greater100 <- pull_rent_own_income(c("> 100k", "rent"), "pct_all")
+
+
+income_vec <- unique(rent_own_data$income_recode)
+
+rent_own_incomeless35 <- rent_own_data %>%
+  filter(income_recode %in% income_vec[1:3])
+
+
+x_ax_rentown <- list(title = "Income",
+                     categoryorder = "array",
+                     categoryarray = ~ household_income)
+
+y_ax_rentown <- list(title = "Cumulative Percent",
+                     tickvals = seq(0, 100, 10))
+
+# graph
+rent_own_num_income_fig <- plot_ly(group_by(rent_own_data, tenure), 
+                                   x = ~income_recode, 
+                                   y = ~ cumul_pct,
+                                   type = "scatter",
+                                   text = ~ glue("{cum_est %>% commafy}
+                                   
+                                   
+                                   "),
+                                   textposition = "above",
+                                   textfont = list(color = "black"),
+                                   color = ~tenure,
+                                   mode = "lines+markers") %>%
+  layout(xaxis = x_ax_rentown, yaxis = y_ax_rentown, title = "Cumulative percent of owners/renters by household income")
+
+rent_own_num_income_fig
+
+
+
+```
 
 #### Income-level by family type
 
 ```{r inc lev family}
 
-data_binder <- function(file_root){
-  # browser()
-  acsprocess::data_binder(file_root = file_root, dir_root = "./data/output_data/acs5_2019/tp_spec/")
-}
-
-
+  
 family_inclev <- data_binder("famtype_income_lev") %>%
   name_num_formatter()
 
@@ -782,12 +1242,12 @@ The ACS makes detailed data available on residents' income relative to the pover
 
 The small sample sizes and high margin of error make it difficult to draw conclusions about poverty-levels broken out by age and household type, and family-type broken out by race. It still may be useful to see Census totals, while keeping in mind the high margin of error.
 
-By age and household type, the largest number of households in poverty are female nonfamily householders older than 65 making up `r pull_fem_nf_pov_65 %>% commafy`, followed by single-female householders aged 25-44--representing `r pull_fem_fam_pov_2544 %>% commafy`--and single male nonfamily households aged 45 to 64, representing `r pull_mal_nf_pov_4564 %>% commafy`.
+By age and household type, the largest number of households in poverty are female nonfamily householders older than 65 making up r pull_fem_nf_pov_65 %>% commafy, followed by single-female householders aged 25-44--representing r pull_fem_fam_pov_2544 %>% commafy--and single male nonfamily households aged 45 to 64, representing r pull_mal_nf_pov_4564 %>% commafy.
 
-```{r family poverty plot}
+r family poverty plot}
 plot_hous_type_age_pov
 
-```
+
 
 
 ### Unemployment
