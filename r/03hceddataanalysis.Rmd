@@ -14,8 +14,6 @@ output:
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE, out.width = '100%')
 
-
-
 library(tidycensus)
 library(sf)
 library(leaflet)
@@ -28,24 +26,23 @@ library(rlang)
 library(glue)
 library(RColorBrewer)
 
-# custom packages
+# custom packages - download with devtools::install_github("dpowerstp/packagename")
 library(acsprocess)
 library(tpfuncts)
 library(leafletwrappers)
 library(plotlywrappers)
 
-
-# race_formatter <- function(df, race_col){
-#   df %>%
-#     mutate(race = acsprocess::race_recode({{ race_col }}))
-# }
+# year working with - update this parameter
+yd <- 2020
 
 pal_race <- brewer.pal(10, "Accent")[c(-4, -5)]
 
 
-data_binder <- function(file_root){
+
+data_binder <- function(file_root, yeardownload = yd){
   # browser()
-  acsprocess::data_binder(file_root = file_root, dir_root = "./data/output_data/acs5_2020/tpspec/")
+  acsprocess::data_binder(file_root = file_root, 
+                          dir_root = glue::glue("./data/output_data/acs5_{yeardownload}/tpspec/"))
 }
 
 
@@ -147,7 +144,7 @@ income_recode <- function(df, income_col, new_income = "income_recode", rent_own
 
 ***About***: This webpage allows Takoma Park residents and staff to learn more about their city through data. Data comes from the Census's [2016-2020 American Community Survey](https://www.census.gov/programs-surveys/acs). Each heading tab opens to a "Summary" sub-tab; click on other sub-tabs to see data-visualizations and detailed explanations. All graphics are interactive; you can click and double-click on legend items to hide or show them, and mousing over graphics will show data-values. The "Methodology" tab describes data sources and statistical significance. Code used to produce this webpage can be found on the [City's Github page](https://github.com/City-of-Takoma-Park/hced). Similar web-maps can be found in the [City's interactive demographic map](https://takomaparkmd.gov/news/learn-about-your-neighborhood-with-interactive-maps/) and in the [City's Social Vulnerability Index maps](https://takomaparkmd.gov/government/housing-and-community-development/planning-and-community-development/data-driven-approach-to-disaster-pandemic-response/).
 
-Please send any questions, comments, or feedback to Senior Policy and Data Analyst Dan Powers at danielp@takomaparkmd.gov.
+Please send any questions, comments, or feedback to Acting Planning Manager Alex Freedman at alexanderf@takomaparkmd.gov, Planning Intern Josh Cato at joshuac@takomaparkmd.gov, and Senior Policy and Data Analyst Dan Powers at danielp@takomaparkmd.gov.
 
 ```{r demographics race, echo=FALSE}
 
@@ -2656,9 +2653,13 @@ pull_md_own_income <- pull_tenure_medincome(c("^maryland$", "own"), "estimate")
 
 
 ```{r income cost burden, echo=FALSE}
-renter_costs <- read_rds("./data/output_data/acs5_2020/tpspec//household_income_rentercosts_processed_tp.rds")
+renter_costs <- read_rds(
+  glue::glue("./data/output_data/acs5_{yd}/tpspec/household_income_rentercosts_processed_tp.rds")
+)
 
-owner_costs <- read_rds("./data/output_data/acs5_2020/tpspec//household_income_ownercosts_processed_tp.rds")
+owner_costs <- read_rds(
+  glue::glue("./data/output_data/acs5_{yd}/tpspec//household_income_ownercosts_processed_tp.rds")
+)
 
 owner_costs_processed <-  owner_costs %>%
   rename_all(tolower) %>%
@@ -7190,6 +7191,7 @@ For a place as small as Takoma Park it can be difficult to assess whether differ
 For instance, in the plot below of internet access for residents 65 and over, hovering over Takoma Park's broadband internet results shows "Margin of error: 7.19%" and "Significant Differences: Overall, MC." 
 
 - **The significant differences** results means that we have at least 90% confidence that there are actual-differences--and not just observed differences--between broadband access for Takoma Park residents 65+ and broadband access for all residents in the city ("Overall"), and between broadband access for 65+ residents of Takoma Park and 65+ residents of Montgomery County ("MC"). We don't see "MD" appear in the list of significant differences because we cannot have confidence at a 90% significance level that Takoma Park's 65+ broadband-access rate of 75.97% is actually-different than Maryland's 65+ access rate of 77.12%.
+
 - **The margin of error** means that we are 90% confident that the actual level of broadband internet access of people 65 and over--not just the 'observed' estimate, which is what we see in the survey data--is between `r 75.97 - 7.19`% and `r 75.97 + 7.19`%. The margin of error suggests that Takoma Park's rate could be either higher or lower than Maryland's access rate due to randomness or sampling.
 
 ```{r demo subplot}
@@ -7206,6 +7208,7 @@ Code used to produce this webpage and pre-process the data can be found on the [
 
 **List of updates:**
 
+- **09/19/2022**: Updated point of contact. Update to some MD and Montgomery County data.
 - **08/25/2022**: Update charts and text with 2016-2020 ACS data.
 - *11/18/2021:* Changed graph width options so resizes to screen and more mobile-friendly.
 - *11/17/2021:* Webpage public.

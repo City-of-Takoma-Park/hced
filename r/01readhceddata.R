@@ -1,28 +1,43 @@
-# purpose - load in data for hced analysis using tidycensus
+# purpose - load in data for hced data explorer using tidycensus
+# last run: 09/19/2022
 
 library(tidycensus)
 library(tidyverse)
 library(conflicted)
 
+# install with devtools::install_github("dpowerstp/acsprocess")
+library(acsprocess)
+
+# update this parameter
+year_downloading <- 2020
+
 conflict_prefer("filter", "dplyr")
 
-variables_2020 <- tidycensus::load_variables(2020, "acs5", cache = TRUE)
+# read in variable names for given census year
+variables_2020 <- tidycensus::load_variables(year_downloading, "acs5", cache = TRUE)
+
+quickdircreate("./data")
+
+# pull variables of interest ----
 
 # variables on age
 age_vars <- variables_2020 %>%
   pull(concept) %>%
   grep("( age)|(^age)", ., ignore.case = T, value = T) %>%
-  unique
+  unique()
 
+# median age
 medage_2020 <- (age_vars %>%
   grep("MEDIAN", ., value = T))[1]
 
 vars_medage_2020 <- variables_2020 %>%
   # dplyr::filter(concept == medage_2020) %>%
   dplyr::filter(grepl("^B01002_", name)) %>%
-  pull(name)
+  dplyr::pull(name)
+
 
 variables <- variables_2020
+
 # variables <- tidycensus::load_variables(2019, "acs5", cache = TRUE)
 
 age_vars <- variables %>%
@@ -633,21 +648,23 @@ multi_year_process <- function(dfs_arg = dfs_list,
   return(output_dir)
 }
 
-multi_year_process(dfs_list[59:59], place_type = "place", year = 2019)
 
-multi_year_process(dfs_list[59:59], place_type = "state", year = 2019)
+# 2015-2019 acs
+multi_year_process(dfs_list, place_type = "place", year = 2019)
 
-
-multi_year_process(dfs_list[59:59], place_type = "county", year = 2019)
-
+multi_year_process(dfs_list, place_type = "state", year = 2019)
 
 
-# 2016-2020 acs
-multi_year_process(dfs_list[grep("Median age by sex", names(dfs_list)):length(dfs_list)], place_type = "place", year = 2020)
+multi_year_process(dfs_list, place_type = "county", year = 2019)
 
-multi_year_process(dfs_list, place_type = "state", year = 2020)
 
-multi_year_process(dfs_list, place_type = "county", year = 2020)
+
+# 2016-2020 acs - update year parameter for new year when updating data explorer
+multi_year_process(dfs_list, place_type = "place", year = year_downloading)
+
+multi_year_process(dfs_list, place_type = "state", year = year_downloading)
+
+multi_year_process(dfs_list, place_type = "county", year = year_downloading)
 
 
 
