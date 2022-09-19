@@ -1,4 +1,5 @@
-# create map showing racial demographics of tp at block group levels
+# purpose: create map showing racial demographics of tp at block group levels
+# last run: 10/06/2021
 
 library(dplyr)
 library(tidyverse)

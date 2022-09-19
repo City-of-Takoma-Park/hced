@@ -1,3 +1,6 @@
+# purpose: read in and visualize community development block grant areas in Takoma Park
+# last run: 04/12/2022
+
 library(sf)
 library(leafletwrappers)
 library(spdep)
