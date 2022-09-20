@@ -650,14 +650,12 @@ multi_year_process <- function(dfs_arg = dfs_list,
 
 
 # 2015-2019 acs
-multi_year_process(dfs_list, place_type = "place", year = 2019)
-
-multi_year_process(dfs_list, place_type = "state", year = 2019)
-
-
-multi_year_process(dfs_list, place_type = "county", year = 2019)
-
-
+# multi_year_process(dfs_list, place_type = "place", year = 2019)
+# 
+# multi_year_process(dfs_list, place_type = "state", year = 2019)
+# 
+# 
+# multi_year_process(dfs_list, place_type = "county", year = 2019)
 
 # 2016-2020 acs - update year parameter for new year when updating data explorer
 multi_year_process(dfs_list, place_type = "place", year = year_downloading)

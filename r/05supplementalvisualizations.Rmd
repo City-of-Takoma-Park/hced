@@ -36,6 +36,10 @@ library(tpfuncts)
 library(leafletwrappers)
 library(plotlywrappers)
 
+
+# update year parameter
+yd <- 2020
+
 # race_formatter <- function(df, race_col){
 #   df %>%
 #     mutate(race = acsprocess::race_recode({{ race_col }}))
@@ -134,11 +138,12 @@ race_breakout_gen <- function(df,
   # showgrid = FALSE))
 }
 
-data_binder <- function(file_root){
+data_binder <- function(file_root, yeardownload = yd){
   # browser()
-  acsprocess::data_binder(file_root = file_root, dir_root = "./data/output_data/acs5_2019/tp_spec/") %>%
-    name_num_formatter()
+  acsprocess::data_binder(file_root = file_root, 
+                          dir_root = glue::glue("./data/output_data/acs5_{yeardownload}/tpspec/"))
 }
+
 
 
 ```
@@ -148,15 +153,6 @@ data_binder <- function(file_root){
 ***About***: This webpage allows Takoma Park residents and staff to learn more about their city through data. Data comes from the Census's [2015-2019 American Community Survey](https://www.census.gov/programs-surveys/acs). Each heading tab opens to a "Summary" sub-tab; click on other sub-tabs to see data-visualizations and detailed explanations. All graphics are interactive; you can click and double-click on legend items to hide or show them, and mousing over graphics will show data-values. The "Methodology" tab describes data sources and statistical significance. Code used to produce this webpage can be found on the [City's Github page](https://github.com/City-of-Takoma-Park/hced). Similar web-maps can be found in the [City's interactive demographic map](https://takomaparkmd.gov/news/learn-about-your-neighborhood-with-interactive-maps/) and in the [City's Social Vulnerability Index maps](https://takomaparkmd.gov/government/housing-and-community-development/planning-and-community-development/data-driven-approach-to-disaster-pandemic-response/).
 
 Please send any questions, comments, or feedback to Public Administration Specialist Dan Powers at danielp@takomaparkmd.gov.
-
-```{r demographics race, echo=FALSE}
-
-data_binder <- function(file_root){
-  # browser()
-  acsprocess::data_binder(file_root = file_root, dir_root = "./data/output_data/acs5_2019/tp_spec/")
-}
-
-```
 
 
 ```{r hous famtype}

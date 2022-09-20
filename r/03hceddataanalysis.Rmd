@@ -1381,6 +1381,8 @@ pull_tp_nocomp <- pull_comp(c("Takoma", "No computer"), "pct_comp_int")
 
 pull_md_nocomp <- pull_comp(c("^Maryland", "No computer"), "pct_comp_int")
 
+pull_mc_nocomp <- pull_comp(c("^Montgome", "No computer"), "pct_comp_int")
+
 pull_mont_broadband <- pull_comp(c("Montgome", "Broadband"), "pct_comp_int")
 
 pull_tp_broadband <- pull_comp(c("Takoma Park", "Broadband"), "pct_comp_int")
@@ -3985,7 +3987,7 @@ pull_pov_tp_male_hispanic <- pull_pov_sex_race(c("Takoma", "^Male", "hispanic"),
 
 text_pov_race_sex_p1 <- glue("**Estimates of poverty rates for women exceed men, although the magnitude of the difference varies by race.** There are no differences that show up as statistically significant between sexes by race. However, it is reasonable to assume that poverty rates for women are higher even if we're not sure how much because they're higher in Maryland and Montgomery County. In Maryland, poverty rates for women are higher than men at a statistically-significant level for all races except Asian; in Montgomery County, for all but residents with a race of 'other.'
 
-**There are not statistically-significant differences in poverty rates by race and sex between Takoma Park and Marlyand or Montgomery County, with a few exceptions.** The poverty rate for Asian women in Takoma Park ({pull_pov_tp_female_asian}%) exceeds their poverty rate in Maryland ({pull_pov_md_female_asian}%) and Montgomery County ({pull_pov_mont_female_asian}%). The {pull_pov_tp_male_white}% poverty rate for white men in Takoma Park and the {pull_pov_tp_female_white}% poverty rate for white women fall below the {pull_pov_md_male_white}% rate for white men and {pull_pov_md_female_white}% rate for white women in Maryland; the {pull_pov_tp_male_black}% poverty rate for Black men in Takoma Park falls below the {pull_pov_md_male_black}% rate in Maryland; and the {pull_pov_tp_male_multiracial}% poverty rate for multiracial men in Takoma Park falls below the {pull_pov_md_male_multiracial}% poverty rate in Maryland, as does the poverty rate for white men ({pull_pov_tp_male_white}% vs. {pull_pov_md_male_white}%) and white women ({pull_pov_tp_female_white}% vs. {pull_pov_tp_female_white}%).")
+**There are not statistically-significant differences in poverty rates by race and sex between Takoma Park and Marlyand or Montgomery County, with a few exceptions.** The poverty rate for Asian women in Takoma Park ({pull_pov_tp_female_asian}%) exceeds their poverty rate in Maryland ({pull_pov_md_female_asian}%) and Montgomery County ({pull_pov_mont_female_asian}%). The {pull_pov_tp_male_white}% poverty rate for white men in Takoma Park and the {pull_pov_tp_female_white}% poverty rate for white women fall below the {pull_pov_md_male_white}% rate for white men and {pull_pov_md_female_white}% rate for white women in Maryland; and the {pull_pov_tp_male_multiracial}% poverty rate for multiracial men in Takoma Park falls below the {pull_pov_md_male_multiracial}% poverty rate in Maryland, as does the poverty rate for white men ({pull_pov_tp_male_white}% vs. {pull_pov_md_male_white}%) and white women ({pull_pov_tp_female_white}% vs. {pull_pov_tp_female_white}%).")
 
 text_pov_race_sex_p2 <- glue("**Compared to white residents of the same sex in Takoma Park, female Asian, Black, Hispanic (with a poverty rate of {pull_pov_tp_female_hispanic}%), and 'other' ({pull_pov_tp_female_other}%) residents have a higher poverty rate than female white residents; and Black male residents have a higher poverty rate than white male residents.** Compared to the city's overall poverty rate of {pull_tp_poverty}%, white male, white female, and multiracial male residents have a lower poverty rate; and Asian and Black female residents have a higher poverty rate. It is likely that poverty rates in the same-sex for other races are higher than white-residents even if they do not show as statistically significant in Takoma Park. In the larger sample of Maryland and Montgomery County, there are statistically-significant differences between white male residents and male residents of all other races, and between white female residents and female residents of all other races (except in Maryland, for Asian women).")
 
@@ -6753,7 +6755,7 @@ plot_race_unemploy
 
 #### Unemployment by age {-}
 
-**As with Montgomery County and Maryland, unemployment rates in Takoma Park generally decline with age, with a high estimate in Takoma Park of `r pull_tp_unemploy_2021`% at 20-21 and a low of 0 percent for people aged 60 to 61 and 65-69.** People aged 45 to 54 have a statistically-significant, higher unemployment rate in Takoma Park than Montgomery County or Maryland at `r pull_tp_unemploy_4554`% compared to `r pull_mont_unemploy_4554`% in Montgomery County and `r pull_md_unemploy_4554`% in Maryland.
+**As with Montgomery County and Maryland, unemployment rates in Takoma Park generally decline with age, with a high estimate in Takoma Park of `r pull_tp_unemploy_2021`% at 20-21 and a low of 0 percent for people aged 60 to 61 and 65-69.** People aged 45 to 54 have a statistically-significant, higher unemployment rate in Takoma Park than Montgomery County at `r pull_tp_unemploy_4554`% compared to `r pull_mont_unemploy_4554`% in Montgomery County.
 
 ```{r plot unemploy age}
 
@@ -6894,7 +6896,7 @@ sub_race_compare_educ
 
 #### Internet access overall
 
-**`r pull_tp_noint_tot` total and `r pull_tp_noint`% of Takoma Park residents have a computer but no internet access, and `r pull_tp_nocomp_tot` total and `r pull_tp_nocomp`% more residents do not have a computer.** Rates of internet and computer access mostly are similar to Montgomery County and Maryland, except that the percent of residents without a computer exceeds Maryland's share of `r pull_md_nocomp`%.
+**`r pull_tp_noint_tot` total and `r pull_tp_noint`% of Takoma Park residents have a computer but no internet access, and `r pull_tp_nocomp_tot` total and `r pull_tp_nocomp`% more residents do not have a computer.** Rates of internet and computer access mostly are similar to Montgomery County and Maryland, except that the percent of residents without a computer exceeds Montgomery County's share of `r pull_mc_nocomp`%.
 
 ```{r plot computer}
 plot_ly(comp,
